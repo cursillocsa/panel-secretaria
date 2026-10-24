@@ -3,6 +3,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Panel de secretaría · Gauss</title>
 <style>
+.cs-tb{width:100%;border-collapse:collapse;font-size:13px}.cs-tb th{background:#d9e2f3;text-align:left;padding:6px;white-space:nowrap}.cs-tb td{padding:6px;border-bottom:1px solid #eee;vertical-align:top}.cs-tb td.n,.cs-tb th.n{text-align:right;white-space:nowrap}
+.cs-res{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}.cs-k{background:#f3f5f9;border-radius:10px;padding:10px}.cs-k span{font-size:11px;color:#666;text-transform:uppercase;display:block}.cs-k b{font-size:19px}
+.cs-sem{display:flex;gap:6px;flex-wrap:wrap}.cs-sem button{flex:1;min-width:120px;border:1px solid #bbb;background:#fff;border-radius:18px;padding:8px 10px;font-size:14px;cursor:pointer;font-family:inherit}.cs-sem button.on{background:#1f4e79;color:#fff;border-color:#1f4e79}
+.cs-al{color:#1155cc;cursor:pointer;text-decoration:underline}
+
 :root{--rojo:#c0392b;--negro:#201e1e;--fondo:#f3f5f9;--verde:#1b8a3a;--azul:#1f4e79}
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--fondo);color:#222;font-size:16px}
@@ -81,6 +86,7 @@ function inicio(){el('volver').style.display='none';msg('');window.scrollTo(0,0)
   '<button class="bgrande b1" style="background:#2e7d32" onclick="justificativo()">🩺 Justificativo<small>Cuando avisan que un alumno faltó o va a faltar</small></button>'+
   '<button class="bgrande b1" style="background:#e65100" onclick="gasto()">🧾 Cargar gasto<small>Lo que se paga de la caja de la oficina</small></button>'+
   '<button class="bgrande b1" style="background:#455a64" onclick="baja()">🚪 Dar de baja<small>Cuando un alumno deja el cursillo</small></button>'+
+  '<button class="bgrande b1" style="background:#37474f" onclick="cargasSemana()">📒 Cargas de la semana<small>Pagos, inscripciones, ajustes, gastos… de sábado a viernes</small></button>'+
   '</div>';}
 
 // ---------- INSCRIBIR ----------
@@ -107,7 +113,8 @@ function campoHtml(c){
  if(c.tipo==='list')return lab+'<select id="'+id+'"><option value=""></option>'+c.ops.map(function(o){return '<option>'+esc(o)+'</option>';}).join('')+'</select>';
  if(c.tipo==='date')return lab+'<input type="date" id="'+id+'">';
  if(c.tipo==='number')return lab+'<input id="'+id+'" inputmode="numeric" oninput="fmt(this)">';
- var extra=/APELLIDO|NOMBRE/i.test(c.titulo)?' oninput="parecidos()" autocomplete="off"':(/CEL|TEL/i.test(c.titulo)?' inputmode="tel"':'');
+ var esCI=/^(CI|C\.I\.|CEDULA|N° CI|NRO\.? CI)$/i.test(sa(c.titulo).trim());
+ var extra=/APELLIDO|NOMBRE/i.test(c.titulo)?' oninput="parecidos()" autocomplete="off"':(esCI?' inputmode="numeric" placeholder="Solo números, sin puntos" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')"':(/CEL|TEL/i.test(c.titulo)?' inputmode="tel"':''));
  return lab+'<input id="'+id+'"'+extra+'>';}
 
 function formulario(idExistente){
@@ -338,4 +345,38 @@ function guardarEdicion(){var a=PICK,m=el('eM'),d={},falta='';
    hecho(r.cambios?'Datos de '+esc(r.nombre)+' actualizados ('+r.cambios+' cambio'+(r.cambios>1?'s':'')+').'+(r.renombradas?'<br><span style="font-weight:normal;font-size:15px">El nombre nuevo se actualizó en '+r.renombradas+' registro(s) de CAJA, INSCRIPCIONES y AJUSTES.</span>':''):
     'No había nada distinto para guardar.','✏️ Corregir otro alumno','editar');},
   function(e){b.disabled=false;b.textContent='💾 Guardar cambios';falla(e,'eM');});}
+
+// ---------- 📒 CARGAS DE LA SEMANA ----------
+var CS_MODO='0';
+function cargasSemana(){pantalla('<div class="card"><h2>📒 Cargas de la semana</h2><div class="cs-sem">'+
+  '<button id="cs0" onclick="csIr(\'0\')">Esta semana</button><button id="cs1" onclick="csIr(\'1\')">Semana anterior</button><button id="csX" onclick="csIr(\'x\')">Elegir fechas</button></div>'+
+  '<div id="csF" style="display:none;margin-top:8px"><div class="fila'+''+'"><div><label>Desde</label><input type="date" id="csD"></div><div><label>Hasta</label><input type="date" id="csH"></div></div>'+
+  '<button class="btn" style="margin-top:10px" onclick="csVer({desde:el(\'csD\').value,hasta:el(\'csH\').value})">Ver</button></div>'+
+  '<div class="ayuda" style="margin-top:6px">La semana va de sábado a viernes.</div></div><div id="csR"></div>');csIr(CS_MODO==='x'?'0':CS_MODO);}
+function csIr(m){CS_MODO=m;['0','1','X'].forEach(function(k){var b=el('cs'+k);if(b)b.className=(k===m||(k==='X'&&m==='x'))?'on':'';});
+ el('csF').style.display=m==='x'?'block':'none';if(m!=='x')csVer({anterior:m});}
+function csVer(p){el('csR').innerHTML='<div class="card">Cargando… (unos segundos)</div>';
+ CS_PEDIR('cargasSemana',p,function(R){el('csR').innerHTML=csPintar(R);if(el('csD')&&!el('csD').value){el('csD').value=R.desdeIso;el('csH').value=R.hastaIso;}},function(e){falla(e,'csR');});}
+function csTabla(tit,enc,filas,der){der=der||[];return '<div class="card"><h2>'+tit+' <span class="ayuda">('+filas.length+')</span></h2>'+(filas.length?'<div style="overflow-x:auto"><table class="cs-tb"><tr>'+
+  enc.map(function(e,i){return '<th'+(der.indexOf(i)>=0?' class="n"':'')+'>'+esc(e)+'</th>';}).join('')+'</tr>'+filas.map(function(f){return '<tr>'+f.map(function(c,i){return '<td'+(der.indexOf(i)>=0?' class="n"':'')+'>'+c+'</td>';}).join('')+'</tr>';}).join('')+
+  '</table></div>':'<div class="ayuda">— nada cargado —</div>')+'</div>';}
+function csK(t,v){return '<div class="cs-k"><span>'+esc(t)+'</span><b>'+v+'</b></div>';}
+function csMil(n){return Math.round(Number(n)||0).toLocaleString('es-PY');}
+
+function CS_PEDIR(a,p,ok,mal){pedir(a,p,ok,mal);}
+function csPintar(R){var al=function(x){return esc(x.alumno)+' <span class="ayuda">'+esc(x.id)+'</span>';};
+ var h='<div class="card"><h2>Del '+esc(R.desde)+' al '+esc(R.hasta)+'</h2><div class="cs-res">'+
+  csK('Pagos',R.pagos.length+' · Gs. '+csMil(R.tot.pagos))+csK('Inscripciones',R.inscripciones.length)+csK('Cambios de grupo',R.cambios.length)+csK('Bajas',R.bajas.length)+
+  csK('Ajustes',R.ajustes.length)+csK('Esperas',R.esperas.length)+csK('Gastos',R.gastos.length+' · Gs. '+csMil(R.tot.gastos))+csK('Anotaciones',R.anotaciones.length)+'</div>'+
+  (R.medios.length?'<div class="ayuda" style="margin-top:8px">Por medio: '+R.medios.map(function(m){return esc(m[0])+' Gs. '+csMil(m[1]);}).join(' · ')+'</div>':'')+'</div>';
+ h+=csTabla('💵 Pagos',['Día','Alumno','Monto','Medio','Tipo','Cobró','Comprobante'],R.pagos.map(function(x){return [esc(x.dia)+(x.pago?'<br><span class="ayuda">pagó '+esc(x.pago)+'</span>':''),al(x),csMil(x.monto),esc(x.medio),esc(x.tipo),esc(x.cobro),esc(x.comp)];}),[2]);
+ h+=csTabla('📝 Inscripciones',['Día','Alumno','Tipo','Grupo','Inicio','Plan'],R.inscripciones.map(function(x){return [esc(x.dia),al(x),esc(x.tipo),esc(x.grupo),esc(x.inicio),esc(x.plan)];}));
+ if(R.sinFechaCarga)h+='<div class="ayuda" style="margin:-8px 0 12px 4px">Las inscripciones se ven desde ahora: el panel anota la FECHA DE CARGA al inscribir.</div>';
+ h+=csTabla('🔄 Cambios de grupo',['Día','Alumno','De','A'],R.cambios.map(function(x){return [esc(x.dia),al(x),esc(x.de),esc(x.a)];}));
+ h+=csTabla('🚪 Bajas',['Salida','Alumno','Grupo','Motivo'],R.bajas.map(function(x){return [esc(x.dia),al(x),esc(x.grupo),esc(x.motivo)];}));
+ h+=csTabla('✂️ Ajustes',['Día','Alumno','Tipo','Monto','Cuota','Motivo','Autorizó'],R.ajustes.map(function(x){return [esc(x.dia),al(x),esc(x.tipo),x.monto===''?'(entera)':csMil(x.monto),esc(x.mes),esc(x.motivo),esc(x.aut)];}),[3]);
+ h+=csTabla('⏳ Esperas de cuotas',['Día','Alumno','Motivo','Cuotas','Hasta','Qué pasó','Anotó'],R.esperas.map(function(x){return [esc(x.dia),al(x),esc(x.motivo),esc(x.cuotas),esc(x.hasta),esc(x.que),esc(x.quien)];}));
+ h+=csTabla('🧾 Gastos',['Día','Detalle','Monto','Medio'],R.gastos.map(function(x){return [esc(x.dia),esc(x.texto),csMil(x.monto),esc(x.medio)];}),[2]);
+ h+=csTabla('📝 Anotaciones de cobranza',['Día','Alumno','Quién','Anotación'],R.anotaciones.map(function(x){return [esc(x.dia),al(x),esc(x.quien),esc(x.obs)];}));
+ return h;}
 </script></body></html>
