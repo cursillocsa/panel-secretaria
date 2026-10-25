@@ -47,6 +47,22 @@ var API='https://script.google.com/macros/s/AKfycbzPNqOlPMgP1lme__szBCxU4kzz7fSJ
 var PANEL_COBRO='https://cursillocsa.github.io/pagos/';
 var PIN='';try{PIN=localStorage.getItem('gaussPinSec')||'';}catch(e){}
 var L=null,FORM=null,EST={};
+// ⚡ Supabase: copia rápida de la lista y de los formularios. Si falla, se usa la planilla como siempre.
+var SB_URL='https://heycvwxaewjbwbusddqg.supabase.co',SB_KEY='sb_publishable_MpClcQrbgiAtqcsaa5js3w_XCYqHztI',FORMS_NUEVOS=null;
+function sbLeer(tipo,clave,ok,mal){
+ if(!PIN){mal();return;}
+ var hecho=false,to=setTimeout(function(){if(!hecho){hecho=true;mal();}},4000);
+ fetch(SB_URL+'/rest/v1/rpc/gauss_leer',{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
+  body:JSON.stringify({p_pin:PIN,p_tipo:tipo,p_clave:clave})})
+ .then(function(r){return r.json();})
+ .then(function(d){if(hecho)return;hecho=true;clearTimeout(to);if(d&&d.datos)ok(d.datos,d.t);else mal();})
+ .catch(function(){if(hecho)return;hecho=true;clearTimeout(to);mal();});}
+function hoyLocal(){var d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
+// Guarda los formularios ya cargados (así al tocar un botón se abre al instante).
+function ponerForms(d){if(!d)return;var ok=function(x){if(!x||x.error)return null;if(x.hoy)x.hoy=hoyLocal();return x;};
+ FORM=ok(d.formInscripcion)||FORM;FJ=ok(d.formJustificativo)||FJ;FG=ok(d.formGasto)||FG;FB=ok(d.formBaja)||FB;FL=ok(d.formLibros)||FL;}
+function enInicio(){return el('volver').style.display!=='inline-block';}
+function formsDePlanilla(){pedir('formsTodos',{},function(d){if(enInicio()||!FORM)ponerForms(d);else FORMS_NUEVOS=d;},function(){});}
 function el(i){return document.getElementById(i);}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function sa(s){return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
@@ -71,12 +87,16 @@ function pedirPin(m){el('volver').style.display='none';msg('');
  var i=el('pin');i.focus();i.onkeydown=function(ev){if(ev.key==='Enter')entrar();};}
 function entrar(){PIN=el('pin').value.trim();guardado('gaussPinSec',PIN);cargar();}
 
-function cargar(){el('app').innerHTML='';msg('Cargando… (unos segundos)');
- pedir('lista',{},function(d){L=d;inicio();},function(e){falla(e);});}
+function cargar(){el('app').innerHTML='';msg('Cargando…');
+ sbLeer('pagosLista','todo',function(d){L=d;inicio();
+   pedir('lista',{},function(d2){L=d2;},function(e){if(String(e.message||'').indexOf('PIN:')>=0)falla(e);});},
+  function(){pedir('lista',{},function(d){L=d;inicio();},function(e){falla(e);});});
+ // formularios: primero la copia rápida, después los de la planilla (por si se agregó un grupo, un motivo, etc.)
+ sbLeer('secForms','todo',function(d){ponerForms(d);formsDePlanilla();},formsDePlanilla);}
 cargar();
 
 // ---------- INICIO: botones grandes ----------
-function inicio(){el('volver').style.display='none';msg('');window.scrollTo(0,0);
+function inicio(){if(FORMS_NUEVOS){ponerForms(FORMS_NUEVOS);FORMS_NUEVOS=null;}el('volver').style.display='none';msg('');window.scrollTo(0,0);
  el('app').innerHTML='<div class="botones">'+
   '<button class="bgrande b1" onclick="inscribir()">📝 Inscribir alumno nuevo<small>Datos del alumno + grupo + cuota</small></button>'+
   '<button class="bgrande b1" style="background:#00838f" onclick="reinscribir()">🔁 Reinscribir alumno que volvió<small>Ya estuvo en Gauss y vuelve</small></button>'+
