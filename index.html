@@ -86,6 +86,7 @@ function inicio(){el('volver').style.display='none';msg('');window.scrollTo(0,0)
   '<button class="bgrande b1" style="background:#2e7d32" onclick="justificativo()">🩺 Justificativo<small>Cuando avisan que un alumno faltó o va a faltar</small></button>'+
   '<button class="bgrande b1" style="background:#e65100" onclick="gasto()">🧾 Cargar gasto<small>Lo que se paga de la caja de la oficina</small></button>'+
   '<button class="bgrande b1" style="background:#455a64" onclick="baja()">🚪 Dar de baja<small>Cuando un alumno deja el cursillo</small></button>'+
+  '<button class="bgrande b1" style="background:#8d6e63" onclick="libros()">📚 Venta de libros<small>Matemática 1, Matemática 2, Ejercitario CPI…</small></button>'+
   '<button class="bgrande b1" style="background:#37474f" onclick="cargasSemana()">📒 Cargas de la semana<small>Pagos, inscripciones, ajustes, gastos… de sábado a viernes</small></button>'+
   '</div>';}
 
@@ -139,6 +140,7 @@ function formulario(idExistente){
   '<div><label>1er vencimiento <span class="ayuda">(vacío = automático)</span></label><input type="date" id="v1"></div></div>'+
   (FORM.becas.length?'<label>Beca <span class="ayuda">(opcional)</span></label><select id="be"><option value=""></option>'+FORM.becas.map(function(b){return '<option>'+esc(b)+'</option>';}).join('')+'</select>':'')+
   '<label>Observaciones <span class="ayuda">(opcional)</span></label><input id="ob">'+
+  '<div style="margin-top:18px;padding-top:10px;border-top:1px solid #ddd"><label style="margin-top:0"><input type="checkbox" id="incL" onchange="incLibros()"> 📚 Incluir libros</label><div id="libI"></div></div>'+
   '<button class="btn" id="bg" onclick="guardar()">💾 Inscribir</button><div id="gm"></div></div>';
  el('form').innerHTML=h;
  var f=el('form');window.scrollTo(0,f.offsetTop-10);}
@@ -170,8 +172,11 @@ function guardar(forzar,cerrar){var m=el('gm'),g=grupoSel(),datos={grupo:el('gr'
  if(!g){m.innerHTML='<div class="err">Elegí el grupo.</div>';return;}
  if(!datos.inicio){m.innerHTML='<div class="err">Falta la fecha en que empieza.</div>';return;}
  if(!datos.monto&&!datos.beca){m.innerHTML='<div class="err">Falta el monto.</div>';return;}
+ EST.venta=null;
+ if(el('incL')&&el('incL').checked){var V=leerVenta('I');if(V.error){m.innerHTML='<div class="err">📚 '+esc(V.error)+'</div>';return;}EST.venta=V;}
  if(!forzar&&!cerrar){var a=EST.id?L.alumnos.filter(function(x){return x[0]===EST.id;})[0]:null;
-  if(!confirm('¿Inscribir a '+(a?a[1]:nombre)+'?\n\nGrupo: '+g.nombre+'\nEmpieza: '+fecha(datos.inicio)+'\n'+datos.plan+': '+gs(datos.monto)+(datos.beca?'\nBeca: '+datos.beca:'')))return;}
+  if(!confirm('¿Inscribir a '+(a?a[1]:nombre)+'?\n\nGrupo: '+g.nombre+'\nEmpieza: '+fecha(datos.inicio)+'\n'+datos.plan+': '+gs(datos.monto)+(datos.beca?'\nBeca: '+datos.beca:'')+
+   (EST.venta?'\n\n📚 '+EST.venta.detalle+' = '+gs(EST.venta.total):'')))return;}
  var b=el('bg');b.disabled=true;b.textContent='Guardando…';m.innerHTML='';
  pedir('inscribir',{datos:JSON.stringify(datos),forzar:forzar?'1':'',cerrar:cerrar?'1':'',nonce:Date.now()+'-'+Math.random().toString(36).slice(2)},listo,
   function(e){b.disabled=false;b.textContent='💾 Inscribir';var t=String(e.message||e);
@@ -180,6 +185,7 @@ function guardar(forzar,cerrar){var m=el('gm'),g=grupoSel(),datos={grupo:el('gr'
    falla(e,'gm');});}
 
 function listo(r){window.scrollTo(0,0);el('volver').style.display='inline-block';
+ var venta=EST.venta;EST.venta=null;
  if(L&&r.nuevo)L.alumnos.push([r.id,r.nombre,r.grupo,'Inscripto',0]);
  el('app').innerHTML='<div class="card ok"><b class="big">✅ '+esc(r.nombre)+' quedó inscripto</b>'+
   'Grupo: <b>'+esc(r.grupo)+'</b> · empieza el '+esc(r.inicio)+'<br>ID alumno: <b>'+esc(r.id)+'</b>'+(r.numInsc?' · Inscripción: <b>'+esc(r.numInsc)+'</b>':'')+
@@ -187,7 +193,10 @@ function listo(r){window.scrollTo(0,0);el('volver').style.display='inline-block'
    '<div class="aviso">No se puede mandar el link del grupo: '+(r.wa===''?'falta el celular del alumno o el LINK WHATSAPP del grupo en GRUPOS.':'')+'</div>')+
   '<a class="btn" href="'+PANEL_COBRO+'" target="_blank" style="text-align:center;text-decoration:none">💵 Cobrar (matrícula / primera cuota)</a>'+
   '<button class="btn az" onclick="inscribir()">📝 Inscribir a otro alumno</button>'+
-  '<div class="ayuda" style="margin-top:10px">Las deudas y listas se actualizan solas en 1 minuto.</div></div>';}
+  (venta?'<div id="libR" class="aviso">📚 Guardando la venta de libros…</div>':'')+
+  '<div class="ayuda" style="margin-top:10px">Las deudas y listas se actualizan solas en 1 minuto.</div></div>';
+ if(venta){var q=venta.params;q.id=r.id;pedir('venderLibros',q,function(x){el('libR').className='ok';el('libR').innerHTML='📚 <b>Libros guardados en CAJA:</b> '+esc(x.detalle)+' = <b>'+gs(x.total)+'</b>';},
+  function(e){el('libR').innerHTML='<span class="err">⚠️ La inscripción quedó, pero los libros no se guardaron: '+esc(String(e.message||e))+'. Cargalos con 📚 Venta de libros.</span>';});}}
 
 // ---------- buscador de alumno reutilizable ----------
 var PICK=null;
@@ -379,4 +388,57 @@ function csPintar(R){var al=function(x){return esc(x.alumno)+' <span class="ayud
  h+=csTabla('🧾 Gastos',['Día','Detalle','Monto','Medio'],R.gastos.map(function(x){return [esc(x.dia),esc(x.texto),csMil(x.monto),esc(x.medio)];}),[2]);
  h+=csTabla('📝 Anotaciones de cobranza',['Día','Alumno','Quién','Anotación'],R.anotaciones.map(function(x){return [esc(x.dia),al(x),esc(x.quien),esc(x.obs)];}));
  return h;}
+
+// ---------- 📚 VENTA DE LIBROS ----------
+var FL=null;
+function conFL(fn){if(FL)fn();else{msg('Cargando…');pedir('formLibros',{},function(d){FL=d;msg('');fn();},function(e){falla(e);});}}
+function opsL(l,sel){return '<option value=""></option>'+(l||[]).map(function(x){return '<option'+(x===sel?' selected':'')+'>'+esc(x)+'</option>';}).join('');}
+// filas de libros + datos de cobro (k = prefijo: 'V' venta suelta, 'I' en la inscripción)
+function bloqueLibros(k,conAlumno){
+ if(!FL.libros.length)return '<div class="aviso">No encontré libros en la lista de TIPO de CAJA (tienen que decir "Libro…" o "Ejercitario…").</div>';
+ var procDef=guardado('gaussSecProc')||(FL.proc.filter(function(p){return sa(p)===sa(FL.oficina);})[0])||'';
+ return '<table style="width:100%;border-collapse:collapse;margin-top:6px">'+FL.libros.map(function(l,i){
+   return '<tr style="border-bottom:1px solid #eee"><td style="padding:8px 4px"><b>'+esc(l.tipo)+'</b><br><span class="ayuda">Precio c/u</span> <input id="'+k+'p'+i+'" inputmode="numeric" oninput="fmt(this);totL(\''+k+'\')" value="'+(l.precio?Number(l.precio).toLocaleString('es-PY'):'')+'" style="width:120px;font-size:15px;padding:6px"></td>'+
+    '<td style="text-align:right;white-space:nowrap"><button type="button" class="mini" onclick="cantL(\''+k+'\','+i+',-1)">−</button> <b id="'+k+'c'+i+'" style="display:inline-block;width:28px;text-align:center;font-size:18px">0</b> <button type="button" class="mini" onclick="cantL(\''+k+'\','+i+',1)">+</button></td></tr>';}).join('')+'</table>'+
+  '<div style="font-size:18px;margin-top:8px">Total: <b id="'+k+'tot">Gs. 0</b></div>'+
+  '<div class="fila"><div><label>Medio <span class="req">*</span></label><select id="'+k+'me">'+opsL(FL.medio,guardado('gaussLibMedio')||FL.medio.filter(function(m){return /efectivo/i.test(m);})[0])+'</select></div>'+
+  '<div><label>Cobró</label><select id="'+k+'co">'+opsL(FL.cobro,guardado('gaussSecCobro'))+'</select></div></div>'+
+  '<div class="fila"><div><label>Procesado en <span class="req">*</span></label><select id="'+k+'pr">'+opsL(FL.proc,procDef)+'</select></div>'+
+  '<div><label>Comprobante</label><select id="'+k+'tc" onchange="factL(\''+k+'\','+(conAlumno?1:0)+')">'+opsL(FL.tipoComp,FL.tipoComp.filter(function(t){return /recibo/i.test(t);})[0]||'')+'</select></div></div>'+
+  '<div id="'+k+'fx"></div>';}
+function cantL(k,i,d){var e=el(k+'c'+i),n=Math.max(0,(Number(e.textContent)||0)+d);e.textContent=n;totL(k);}
+function totL(k){var t=0;FL.libros.forEach(function(l,i){t+=(Number(el(k+'c'+i).textContent)||0)*num(el(k+'p'+i).value);});el(k+'tot').textContent=gs(t);}
+function factL(k,conAlumno){var f=/factura/i.test(el(k+'tc').value),x=el(k+'fx');
+ x.innerHTML=f?'<div class="fila"><div><label>N° de factura <span class="ayuda">(si ya la hiciste)</span></label><input id="'+k+'nf"></div></div>'+
+  (conAlumno?'':'<div class="fila"><div><label>RUC <span class="req">*</span></label><input id="'+k+'ruc"></div><div><label>Razón social <span class="req">*</span></label><input id="'+k+'raz"></div></div>'+
+   '<div class="ayuda">Si es alumno, mejor elegilo arriba: se usan sus datos de facturación.</div>'):'';}
+function leerVenta(k,id){var items=[],det=[],tot=0;
+ FL.libros.forEach(function(l,i){var c=Number(el(k+'c'+i).textContent)||0,p=num(el(k+'p'+i).value);if(c>0){items.push({tipo:l.tipo,cant:c,precio:p});det.push(c+' × '+l.tipo);tot+=c*p;}});
+ if(!items.length)return {error:'Elegí al menos un libro (tocá +).'};
+ if(items.some(function(x){return !x.precio;}))return {error:'Falta el precio de algún libro.'};
+ if(!el(k+'me').value)return {error:'Elegí el medio de pago.'};
+ if(!el(k+'pr').value)return {error:'Elegí PROCESADO EN.'};
+ var tc=el(k+'tc').value,q={items:JSON.stringify(items),medio:el(k+'me').value,cobro:el(k+'co').value,proc:el(k+'pr').value,tipoComp:tc,
+  comp:el(k+'nf')?el(k+'nf').value.trim():'',id:id||'',nonce:Date.now()+'-'+Math.random().toString(36).slice(2)};
+ if(el(k+'ruc')){q.factRuc=el(k+'ruc').value.trim();q.factRazon=el(k+'raz').value.trim();if(/factura/i.test(tc)&&!id&&(!q.factRuc||!q.factRazon))return {error:'Para factura sin alumno, completá RUC y razón social.'};}
+ guardado('gaussLibMedio',q.medio);guardado('gaussSecCobro',q.cobro);guardado('gaussSecProc',q.proc);
+ return {params:q,detalle:det.join(' · '),total:tot};}
+function incLibros(){var on=el('incL').checked;if(!on){el('libI').innerHTML='';return;}
+ conFL(function(){el('libI').innerHTML=bloqueLibros('I',true)+'<div class="ayuda">Se cargan en CAJA a nombre del alumno, apenas se guarda la inscripción.</div>';});}
+function libros(){conFL(function(){PICK=null;PICK_CB=null;
+ pantalla('<div class="card"><h2>📚 Venta de libros</h2>'+bloqueLibros('V',false)+
+  '<label style="margin-top:14px"><input type="checkbox" id="Val" onchange="libAlumno()"> Es un alumno <span class="ayuda">(opcional: solo si querés que quede a su nombre o pide factura con sus datos)</span></label><div id="Vbus"></div>'+
+  '<label>Observación <span class="ayuda">(opcional)</span></label><input id="Vob">'+
+  '<button class="btn" id="Vb" onclick="venderL()">📚 Guardar venta</button><div id="Vm"></div></div>');});}
+function libAlumno(){var on=el('Val').checked;PICK=null;
+ el('Vbus').innerHTML=on?'<input id="pq" placeholder="Escribí apellido, nombre o ID…" oninput="pBuscar()" autocomplete="off"><div id="pres" class="res"></div><div id="psel"></div>':'';
+ factL('V',on?1:0);if(on)el('pq').focus();}
+function venderL(){var m=el('Vm'),id=el('Val').checked?(PICK?PICK[0]:''):'';
+ if(el('Val').checked&&!id){m.innerHTML='<div class="err">Elegí el alumno (o destildá "Es un alumno").</div>';return;}
+ var V=leerVenta('V',id);if(V.error){m.innerHTML='<div class="err">'+esc(V.error)+'</div>';return;}
+ V.params.obs=el('Vob').value.trim();
+ if(!confirm('¿Guardar la venta?\n\n'+V.detalle+'\nTotal: '+gs(V.total)+'\n'+V.params.medio+(id?'\nAlumno: '+PICK[1]:'')))return;
+ var b=el('Vb');b.disabled=true;b.textContent='Guardando…';
+ pedir('venderLibros',V.params,function(r){hecho('Venta guardada en CAJA: '+esc(r.detalle)+' = '+gs(r.total)+(r.nombre?' ('+esc(r.nombre)+')':'')+'.','📚 Otra venta','libros');},
+  function(e){b.disabled=false;b.textContent='📚 Guardar venta';falla(e,'Vm');});}
 </script></body></html>
