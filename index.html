@@ -57,6 +57,29 @@ function sbLeer(tipo,clave,ok,mal){
  .then(function(r){return r.json();})
  .then(function(d){if(hecho)return;hecho=true;clearTimeout(to);if(d&&d.datos)ok(d.datos,d.t);else mal();})
  .catch(function(){if(hecho)return;hecho=true;clearTimeout(to);mal();});}
+var NAV=0,TOCADO=false,NUEVO=null;
+function estable(o){if(Array.isArray(o))return '['+o.map(estable).join(',')+']';
+ if(o&&typeof o==='object')return '{'+Object.keys(o).filter(function(k){return k!=='_ms'&&k!=='_total'&&o[k]!==undefined;}).sort()
+  .map(function(k){return JSON.stringify(k)+':'+estable(o[k]);}).join(',')+'}';
+ return JSON.stringify(o);}
+function haceCuanto(t){var m=Math.round((Date.now()-new Date(t).getTime())/60000);return isNaN(m)?'':(m<1?'recién':m<60?'hace '+m+' min':'hace '+Math.round(m/60)+' h');}
+function sbMarca(h){var m=el('sbMarca');if(!m){m=document.createElement('div');m.id='sbMarca';m.style.cssText='font-size:12px;color:#777;text-align:center;margin:0 0 8px';
+  var a=el('app');a.parentNode.insertBefore(m,a);}m.innerHTML=h||'';}
+// Muestra la copia de Supabase al instante y después confirma con la planilla.
+// "refresco" (opcional): qué hacer con los datos nuevos de la planilla (si no, se vuelve a usar "ok").
+function rapido(acc,params,tipo,clave,ok,mal,refresco){
+ var n=++NAV;sbMarca('');
+ sbLeer(tipo,clave,function(d,t){
+  if(n!==NAV)return;TOCADO=false;ok(d);sbMarca('⚡ Copia rápida ('+esc(haceCuanto(t))+') · confirmando con la planilla…');
+  pedir(acc,params,function(D){
+   if(n!==NAV)return;
+   if(estable(D)===estable(d)){sbMarca('✅ Confirmado con la planilla');setTimeout(function(){if(n===NAV)sbMarca('');},2500);return;}
+   var aplicar=function(){var y=window.scrollY;(refresco||ok)(D);window.scrollTo(0,y);sbMarca('');};
+   if(!TOCADO||refresco){aplicar();return;}
+   NUEVO=aplicar;sbMarca('<b style="color:#b45f06">🔄 La planilla tiene datos más nuevos.</b> <button onclick="NUEVO()" style="font-size:12px">Actualizar</button>');
+  },function(e){if(n!==NAV)return;if(String(e.message||'').indexOf('PIN:')>=0){mal(e);return;}
+   sbMarca('<span style="color:#c0392b">⚠️ No se pudo confirmar con la planilla (se ve la copia rápida).</span>');});
+ },function(){if(n===NAV)pedir(acc,params,function(D){if(n===NAV)ok(D);},function(e){if(n===NAV)mal(e);});});}
 function hoyLocal(){var d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
 // Guarda los formularios ya cargados (así al tocar un botón se abre al instante).
 function ponerForms(d){if(!d)return;var ok=function(x){if(!x||x.error)return null;if(x.hoy)x.hoy=hoyLocal();return x;};
@@ -93,10 +116,11 @@ function cargar(){el('app').innerHTML='';msg('Cargando…');
   function(){pedir('lista',{},function(d){L=d;inicio();},function(e){falla(e);});});
  // formularios: primero la copia rápida, después los de la planilla (por si se agregó un grupo, un motivo, etc.)
  sbLeer('secForms','todo',function(d){ponerForms(d);formsDePlanilla();},formsDePlanilla);}
+el('app').addEventListener('input',function(){TOCADO=true;});
 cargar();
 
 // ---------- INICIO: botones grandes ----------
-function inicio(){if(FORMS_NUEVOS){ponerForms(FORMS_NUEVOS);FORMS_NUEVOS=null;}el('volver').style.display='none';msg('');window.scrollTo(0,0);
+function inicio(){NAV++;sbMarca('');if(FORMS_NUEVOS){ponerForms(FORMS_NUEVOS);FORMS_NUEVOS=null;}el('volver').style.display='none';msg('');window.scrollTo(0,0);
  el('app').innerHTML='<div class="botones">'+
   '<button class="bgrande b1" onclick="inscribir()">📝 Inscribir alumno nuevo<small>Datos del alumno + grupo + cuota</small></button>'+
   '<button class="bgrande b1" style="background:#00838f" onclick="reinscribir()">🔁 Reinscribir alumno que volvió<small>Ya estuvo en Gauss y vuelve</small></button>'+
@@ -231,7 +255,7 @@ function pElegir(id){var a=L.alumnos.filter(function(x){return x[0]===id;})[0];P
  el('psel').innerHTML='<div class="aviso" style="background:#d9ead3"><b>'+esc(a[1])+'</b><br>'+esc(a[0])+' · '+esc(a[2]||'sin grupo')+' · '+esc(a[3]||'')+'</div>';
  if(PICK_CB)PICK_CB(a);}
 var PICK_CB=null;
-function pantalla(h){el('volver').style.display='inline-block';msg('');window.scrollTo(0,0);el('app').innerHTML=h;}
+function pantalla(h){NAV++;sbMarca('');el('volver').style.display='inline-block';msg('');window.scrollTo(0,0);el('app').innerHTML=h;}
 function nonce(){return Date.now()+'-'+Math.random().toString(36).slice(2);}
 function hoyIso(){var d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
 function hecho(t,otra,fn){pantalla('<div class="card ok"><b class="big">✅ '+t+'</b>'+
@@ -341,7 +365,7 @@ function editar(){PICK=null;
  var seguir=function(){
   pantalla(buscadorHtml('¿De qué alumno?')+'<div id="ed"></div>');
   PICK_CB=function(a){el('ed').innerHTML='<div class="card">Cargando sus datos…</div>';
-   pedir('datosAlumno',{id:a[0]},function(r){EST.orig=r.valores;
+   rapido('datosAlumno',{id:a[0]},'secDatos',a[0],function(r){EST.orig=r.valores;
     var obl=FORM.campos.filter(function(c){return c.req;}),otros=FORM.campos.filter(function(c){return !c.req;});
     el('ed').innerHTML='<div class="card"><h2><span class="paso">2</span>Datos de '+esc(a[1])+'</h2>'+
      '<div class="fila">'+obl.map(function(c){return '<div>'+campoHtml(c)+'</div>';}).join('')+'</div>'+
@@ -392,7 +416,7 @@ function csTabla(tit,enc,filas,der){der=der||[];return '<div class="card"><h2>'+
 function csK(t,v){return '<div class="cs-k"><span>'+esc(t)+'</span><b>'+v+'</b></div>';}
 function csMil(n){return Math.round(Number(n)||0).toLocaleString('es-PY');}
 
-function CS_PEDIR(a,p,ok,mal){pedir(a,p,ok,mal);}
+function CS_PEDIR(a,p,ok,mal){if(p.desde||p.hasta){NAV++;sbMarca('');pedir(a,p,ok,mal);return;}rapido(a,p,'cargas',p.anterior==='1'?'anterior':'actual',ok,mal);}
 function csPintar(R){var al=function(x){return esc(x.alumno)+' <span class="ayuda">'+esc(x.id)+'</span>';};
  var h='<div class="card"><h2>Del '+esc(R.desde)+' al '+esc(R.hasta)+'</h2><div class="cs-res">'+
   csK('Pagos',R.pagos.length+' · Gs. '+csMil(R.tot.pagos))+csK('Inscripciones',R.inscripciones.length)+csK('Cambios de grupo',R.cambios.length)+csK('Bajas',R.bajas.length)+
