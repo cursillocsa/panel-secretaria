@@ -70,7 +70,7 @@ function sbMarca(h){var m=el('sbMarca');if(!m){m=document.createElement('div');m
 function rapido(acc,params,tipo,clave,ok,mal,refresco){
  var n=++NAV;sbMarca('');
  sbLeer(tipo,clave,function(d,t){
-  if(n!==NAV)return;TOCADO=false;ok(d);sbMarca('⚡ Copia rápida ('+esc(haceCuanto(t))+') · confirmando con la planilla…');
+  if(n!==NAV)return;TOCADO=false;ok(d);sbMarca('⚡ Vista rápida · confirmando con la planilla…');
   pedir(acc,params,function(D){
    if(n!==NAV)return;
    if(estable(D)===estable(d)){sbMarca('✅ Confirmado con la planilla');setTimeout(function(){if(n===NAV)sbMarca('');},2500);return;}
@@ -78,7 +78,7 @@ function rapido(acc,params,tipo,clave,ok,mal,refresco){
    if(!TOCADO||refresco){aplicar();return;}
    NUEVO=aplicar;sbMarca('<b style="color:#b45f06">🔄 La planilla tiene datos más nuevos.</b> <button onclick="NUEVO()" style="font-size:12px">Actualizar</button>');
   },function(e){if(n!==NAV)return;if(String(e.message||'').indexOf('PIN:')>=0){mal(e);return;}
-   sbMarca('<span style="color:#c0392b">⚠️ No se pudo confirmar con la planilla (se ve la copia rápida).</span>');});
+   sbMarca('<span style="color:#c0392b">⚠️ No se pudo confirmar con la planilla (se ve la vista rápida).</span>');});
  },function(){if(n===NAV)pedir(acc,params,function(D){if(n===NAV)ok(D);},function(e){if(n===NAV)mal(e);});});}
 function hoyLocal(){var d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
 // Guarda los formularios ya cargados (así al tocar un botón se abre al instante).
