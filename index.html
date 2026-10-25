@@ -39,8 +39,9 @@ input[type=checkbox]{width:auto;transform:scale(1.4);margin-right:8px}
 .ok b.big{font-size:20px;display:block;margin-bottom:6px}
 #msg{color:#666;text-align:center;margin-top:30px}
 .paso{display:inline-block;background:var(--azul);color:#fff;border-radius:50%;width:26px;height:26px;text-align:center;line-height:26px;margin-right:6px;font-size:14px}
+header h1 span.tit{color:inherit}h1 .tit{cursor:pointer;-webkit-tap-highlight-color:transparent}h1 .tit:active{opacity:.6}
 </style></head><body>
-<header><h1>🏫 Panel de secretaría <span>Gauss</span></h1><button id="volver" onclick="inicio()">⬅ Inicio</button></header>
+<header><h1><span class="tit" onclick="if(L)inicio()" title="Ir al inicio">🏫 Panel de secretaría <span>Gauss</span></span></h1><button id="volver" onclick="inicio()">⬅ Inicio</button></header>
 <main><div id="app"></div><div id="msg">Cargando…</div></main>
 <script>
 var API='https://script.google.com/macros/s/AKfycbzPNqOlPMgP1lme__szBCxU4kzz7fSJ3PxLxUZu_CcywI5ftsESe6e7hL63z1Xp7M6U/exec';
@@ -91,7 +92,7 @@ function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'
 function sa(s){return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
 function gs(n){n=Number(n)||0;return 'Gs. '+Math.round(n).toLocaleString('es-PY');}
 function num(s){return Number(String(s).replace(/[^0-9]/g,''))||0;}
-function fmt(i){var n=num(i.value);i.value=n?n.toLocaleString('es-PY'):'';}
+function fmt(i){var n=num(i.value);i.value=n?n.toLocaleString('es-PY'):(/0/.test(i.value)?'0':'');}   // se puede escribir 0
 function fecha(iso){if(!iso)return '';var p=iso.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
 function guardado(k,v){try{if(v===undefined)return localStorage.getItem(k)||'';localStorage.setItem(k,v);}catch(e){return '';}}
 function msg(t){el('msg').innerHTML=t||'';}
@@ -115,24 +116,33 @@ function cargar(){el('app').innerHTML='';msg('Cargando…');
    pedir('lista',{},function(d2){L=d2;},function(e){if(String(e.message||'').indexOf('PIN:')>=0)falla(e);});},
   function(){pedir('lista',{},function(d){L=d;inicio();},function(e){falla(e);});});
  // formularios: primero la copia rápida, después los de la planilla (por si se agregó un grupo, un motivo, etc.)
- sbLeer('secForms','todo',function(d){ponerForms(d);formsDePlanilla();},formsDePlanilla);}
+ sbLeer('secForms','todo',function(d){ponerForms(d);formsDePlanilla();},formsDePlanilla);
+ cargarRevisar();}
 el('app').addEventListener('input',function(){TOCADO=true;});
 cargar();
 
 // ---------- INICIO: botones grandes ----------
 function inicio(){NAV++;sbMarca('');if(FORMS_NUEVOS){ponerForms(FORMS_NUEVOS);FORMS_NUEVOS=null;}el('volver').style.display='none';msg('');window.scrollTo(0,0);
  el('app').innerHTML='<div class="botones">'+
+  '<a class="bgrande b2" href="'+PANEL_COBRO+'" target="_blank">💵 Estado de cuenta y cobros<small>Ver deuda, cuotas y pagos · cargar pago · comprobante · ajustes</small></a>'+
   '<button class="bgrande b1" onclick="inscribir()">📝 Inscribir alumno nuevo<small>Datos del alumno + grupo + cuota</small></button>'+
   '<button class="bgrande b1" style="background:#00838f" onclick="reinscribir()">🔁 Reinscribir alumno que volvió<small>Ya estuvo en Gauss y vuelve</small></button>'+
-  '<button class="bgrande b1" style="background:#5d4037" onclick="editar()">✏️ Corregir o actualizar datos<small>Celular, responsable, CI, colegio, facturación…</small></button>'+
-  '<a class="bgrande b2" href="'+PANEL_COBRO+'" target="_blank">💵 Estado de cuenta y cobros<small>Ver deuda, cuotas y pagos · cargar pago · comprobante · ajustes</small></a>'+
-  '<button class="bgrande b1" style="background:#6a1b9a" onclick="cambiarGrupo()">🔄 Cambiar de grupo<small>Pasar a un alumno a otro grupo</small></button>'+
-  '<button class="bgrande b1" style="background:#2e7d32" onclick="justificativo()">🩺 Justificativo<small>Cuando avisan que un alumno faltó o va a faltar</small></button>'+
   '<button class="bgrande b1" style="background:#e65100" onclick="gasto()">🧾 Cargar gasto<small>Lo que se paga de la caja de la oficina</small></button>'+
-  '<button class="bgrande b1" style="background:#455a64" onclick="baja()">🚪 Dar de baja<small>Cuando un alumno deja el cursillo</small></button>'+
+  '<button class="bgrande b1" style="background:#2e7d32" onclick="justificativo()">🩺 Justificativo<small>Cuando avisan que un alumno faltó o va a faltar</small></button>'+
+  '<button class="bgrande b1" style="background:#6a1b9a" onclick="cambiarGrupo()">🔄 Cambiar de grupo<small>Pasar a un alumno a otro grupo</small></button>'+
   '<button class="bgrande b1" style="background:#8d6e63" onclick="libros()">📚 Venta de libros<small>Matemática 1, Matemática 2, Ejercitario CPI…</small></button>'+
+  '<button class="bgrande b1" style="background:#5d4037" onclick="editar()">✏️ Corregir o actualizar datos<small>Celular, responsable, CI, colegio, facturación…</small></button>'+
+  '<button class="bgrande b1" style="background:#455a64" onclick="baja()">🚪 Dar de baja<small>Cuando un alumno deja el cursillo</small></button>'+
   '<button class="bgrande b1" style="background:#37474f" onclick="cargasSemana()">📒 Cargas de la semana<small>Pagos, inscripciones, ajustes, gastos… de sábado a viernes</small></button>'+
-  '</div>';}
+  '</div>'+tarjetaReservas();
+ if(REV&&REV.length)el('app').insertAdjacentHTML('afterbegin',tarjetaRevisar());}
+function tarjetaReservas(){var R=L?L.alumnos.filter(function(x){return String(x[3]).indexOf('📌')===0;}):[];if(!R.length)return '';
+ return '<div class="card" style="margin-top:14px;background:#f3eefc"><h2 style="cursor:pointer" onclick="var l=el(\'resL\');l.style.display=l.style.display===\'none\'?\'block\':\'none\'">📌 Reservas sin grupo ('+R.length+') <span class="ayuda">tocá para ver</span></h2><div id="resL" style="display:none">'+
+  R.map(function(x){return '<div style="padding:8px 0;border-top:1px solid #ddd"><b>'+esc(x[1])+'</b> <span class="ayuda">'+esc(x[0])+' · '+esc(String(x[3]).replace('📌 Reserva · ','le interesa: '))+'</span><br>'+
+   '<button class="mini" onclick="asignarReserva(\''+esc(x[0])+'\')">➕ Asignar grupo</button> <button class="mini" onclick="quitarReserva(\''+esc(x[0])+'\')">✖ Quitar reserva</button></div>';}).join('')+'</div></div>';}
+function asignarReserva(id){inscribir(true);var go=function(){formulario(id);};if(FORM)go();else pedir('formInscripcion',{},function(d){FORM=d;msg('');go();},function(e){falla(e);});}
+function quitarReserva(id){var x=L.alumnos.filter(function(a){return a[0]===id;})[0];var mo=prompt('¿Por qué se quita la reserva de '+(x?x[1]:id)+'? (ej. se fue a otro cursillo)');if(!mo||!mo.trim())return;
+ msg('Quitando…');pedir('quitarReserva',{id:id,motivo:mo.trim(),quien:guardado('gaussSecQuien')},function(){if(x)x[3]='';msg('');inicio();},function(e){falla(e);});}
 
 // ---------- INSCRIBIR ----------
 function reinscribir(){inscribir(true);}
@@ -153,7 +163,7 @@ function buscar(){var q=sa(el('bq').value.trim()),r=el('bres');
 function campoHtml(c){
  // número solo para montos (MATRÍCULA, MONTO, CUOTA); todo lo demás es texto, aunque la celda tenga formato de número
  if(c.tipo==='number'&&!/MATR|MONTO|CUOTA/i.test(sa(c.titulo)))c.tipo='text';
- var id='al'+c.j,lab='<label>'+esc(c.titulo)+(c.req?' <span class="req">*</span>':'')+'</label>';
+ var id='al'+c.j,lab='<label>'+esc(c.titulo)+(c.req||c.obl?' <span class="req">*</span>':'')+'</label>';
  if(c.tipo==='check')return '<label style="font-weight:normal;margin-top:14px"><input type="checkbox" id="'+id+'">'+esc(c.titulo)+'</label>';
  if(c.tipo==='list')return lab+'<select id="'+id+'"><option value=""></option>'+c.ops.map(function(o){return '<option>'+esc(o)+'</option>';}).join('')+'</select>';
  if(c.tipo==='date')return lab+'<input type="date" id="'+id+'">';
@@ -176,6 +186,10 @@ function formulario(idExistente){
  // inscripción
  var mods={};FORM.grupos.forEach(function(g){(mods[g.mod||'Otros']=mods[g.mod||'Otros']||[]).push(g);});
  h+='<div class="card"><h2><span class="paso">3</span>Inscripción</h2>'+
+  '<label style="font-weight:normal;margin:4px 0 8px;background:#f3eefc;border-radius:8px;padding:8px"><input type="checkbox" id="resv" onchange="modoReserva()" style="width:auto"> <b>📌 Solo reservar lugar</b> <span class="ayuda">(todavía no sabe el grupo: se guarda el alumno y la matrícula, sin cuotas)</span></label>'+
+  '<div id="resDatos" style="display:none"><div class="fila"><div><label>Le interesa: curso <span class="req">*</span></label><select id="riC">'+opsUnicos('curso')+'</select></div>'+
+  '<div><label>Modalidad</label><select id="riM">'+opsUnicos('mod')+'</select></div></div></div>'+
+  '<div id="insDatos">'+
   '<label>Grupo <span class="req">*</span></label><select id="gr" onchange="cambioGrupo()"><option value=""></option>'+
   Object.keys(mods).map(function(m){return '<optgroup label="'+esc(m)+'">'+mods[m].map(function(g){return '<option value="'+esc(g.cod)+'">'+esc(g.nombre)+(g.inicio?' · empieza '+fecha(g.inicio):'')+'</option>';}).join('')+'</optgroup>';}).join('')+'</select>'+
   '<div class="fila"><div><label>Empieza el <span class="req">*</span></label><input type="date" id="ini"></div>'+
@@ -185,7 +199,7 @@ function formulario(idExistente){
   (FORM.becas.length?'<label>Beca <span class="ayuda">(opcional)</span></label><select id="be"><option value=""></option>'+FORM.becas.map(function(b){return '<option>'+esc(b)+'</option>';}).join('')+'</select>':'')+
   '<label>Observaciones <span class="ayuda">(opcional)</span></label><input id="ob">'+
   '<div style="margin-top:18px;padding-top:10px;border-top:1px solid #ddd"><label style="margin-top:0"><input type="checkbox" id="incL" onchange="incLibros()"> 📚 Incluir libros</label><div id="libI"></div></div>'+
-  '<button class="btn" id="bg" onclick="guardar()">💾 Inscribir</button><div id="gm"></div></div>';
+  '</div><button class="btn" id="bg" onclick="guardar()">💾 Inscribir</button><div id="gm"></div></div>';
  el('form').innerHTML=h;
  var f=el('form');window.scrollTo(0,f.offsetTop-10);}
 
@@ -195,6 +209,8 @@ function parecidos(){var c=FORM.campos.filter(function(x){return x.req;});
  var p=t.split(/\s+/).filter(function(w){return w.length>2;}),h=L.alumnos.filter(function(x){var s=sa(x[1]);return p.length&&p.every(function(w){return s.indexOf(w)>=0;});}).slice(0,4);
  r.innerHTML=h.length?'<div class="aviso">⚠️ ¿Ya existe? '+h.map(function(x){return '<br><b>'+esc(x[1])+'</b> ('+esc(x[0])+' · '+esc(x[2]||'sin grupo')+') <button class="mini" onclick="formulario(\''+esc(x[0])+'\')">Es este</button>';}).join('')+'</div>':'';}
 
+function opsUnicos(k){var u={};FORM.grupos.forEach(function(g){if(g[k])u[g[k]]=1;});return '<option value=""></option>'+Object.keys(u).sort().map(function(x){return '<option>'+esc(x)+'</option>';}).join('');}
+function modoReserva(){var r=el('resv').checked;el('resDatos').style.display=r?'block':'none';el('insDatos').style.display=r?'none':'block';el('bg').textContent=r?'📌 Guardar reserva':'💾 Inscribir';}
 function grupoSel(){var c=el('gr').value;return FORM.grupos.filter(function(g){return g.cod===c;})[0];}
 function cambioGrupo(){var g=grupoSel();if(!g)return;
  el('ini').value=g.inicio&&g.inicio>FORM.hoy?g.inicio:FORM.hoy;EST.toco=false;cambioPlan();}
@@ -209,10 +225,21 @@ function guardar(forzar,cerrar){var m=el('gm'),g=grupoSel(),datos={grupo:el('gr'
  var nombre='';
  if(EST.id)datos.idExistente=EST.id;
  else{datos.alumno={};var falta='';
-  FORM.campos.forEach(function(c){var e=el('al'+c.j);if(!e)return;var v=c.tipo==='check'?e.checked:(c.tipo==='number'?(num(e.value)||''):e.value.trim());
-   if(c.req&&!v)falta=falta||c.titulo;if(v!==''&&v!==false)datos.alumno[c.j]=v;});
-  if(falta){m.innerHTML='<div class="err">Falta: '+esc(falta)+'</div>';return;}
+  FORM.campos.forEach(function(c){var e=el('al'+c.j);if(!e)return;var v=c.tipo==='check'?e.checked:(c.tipo==='number'?(e.value.trim()===''?'':num(e.value)):e.value.trim());
+   var vacio=v===''||v===null||v===undefined;if((c.req||(c.obl&&c.tipo!=='check'))&&vacio){falta=falta||c.titulo;e.style.borderColor='#c0392b';}else if(e.style)e.style.borderColor='';
+   if(v!==''&&v!==false)datos.alumno[c.j]=v;});
+  if(falta){m.innerHTML='<div class="err">Falta completar: '+esc(falta)+' (marcado en rojo).</div>';return;}
   nombre=FORM.campos.filter(function(c){return c.req;}).map(function(c){return el('al'+c.j).value.trim();}).join(', ');}
+ if(el('resv')&&el('resv').checked){                       // 📌 solo reservar lugar
+  var cu=el('riC').value,mo=el('riM').value;if(!cu){m.innerHTML='<div class="err">Elegí el curso que le interesa.</div>';return;}
+  var res={reserva:1,interes:cu+(mo?' · '+mo:''),idExistente:EST.id||undefined,alumno:datos.alumno};
+  var a0=EST.id?L.alumnos.filter(function(x){return x[0]===EST.id;})[0]:null;
+  if(!confirm('¿Guardar la reserva de '+(a0?a0[1]:nombre)+'?\n\nLe interesa: '+res.interes+'\nNo se inscribe en ningún grupo ni genera cuotas.'))return;
+  var b0=el('bg');b0.disabled=true;b0.textContent='Guardando…';
+  pedir('inscribir',{datos:JSON.stringify(res),forzar:forzar?'1':'',nonce:Date.now()+'-'+Math.random().toString(36).slice(2)},listo,
+   function(e){b0.disabled=false;b0.textContent='📌 Guardar reserva';var t=String(e.message||e);
+    if(t.indexOf('REPETIDO:')===0){if(confirm(t.replace('REPETIDO: ','')+'\n\n¿Es otra persona con el mismo nombre? (Aceptar = cargar igual)'))guardar(true);return;}falla(e,'gm');});
+  return;}
  if(!g){m.innerHTML='<div class="err">Elegí el grupo.</div>';return;}
  if(!datos.inicio){m.innerHTML='<div class="err">Falta la fecha en que empieza.</div>';return;}
  if(!datos.monto&&!datos.beca){m.innerHTML='<div class="err">Falta el monto.</div>';return;}
@@ -229,6 +256,11 @@ function guardar(forzar,cerrar){var m=el('gm'),g=grupoSel(),datos={grupo:el('gr'
    falla(e,'gm');});}
 
 function listo(r){window.scrollTo(0,0);el('volver').style.display='inline-block';
+ if(r.reserva){if(L){var x0=L.alumnos.filter(function(x){return x[0]===r.id;})[0];if(x0){x0[2]='';x0[3]='📌 Reserva · '+r.interes;}else L.alumnos.push([r.id,r.nombre,'','📌 Reserva · '+r.interes,0]);}
+  el('app').innerHTML='<div class="card ok"><b class="big">📌 '+esc(r.nombre)+' quedó con el lugar reservado</b><div style="margin:8px 0">Le interesa: <b>'+esc(r.interes)+'</b> · '+esc(r.id)+
+   '<br>No está en ningún grupo y no genera cuotas. Cuando decida, entrá a <b>📌 Reservas sin grupo</b> (en el inicio) → Asignar grupo.</div>'+
+   '<a class="btn" style="display:block;text-align:center;text-decoration:none" href="'+PANEL_COBRO+'" target="_blank">💵 Cobrar la matrícula en Pagos</a>'+
+   '<button class="btn gr" onclick="inicio()">⬅ Volver al inicio</button></div>';return;}
  var venta=EST.venta;EST.venta=null;
  if(L&&r.nuevo)L.alumnos.push([r.id,r.nombre,r.grupo,'Inscripto',0]);
  el('app').innerHTML='<div class="card ok"><b class="big">✅ '+esc(r.nombre)+' quedó inscripto</b>'+
@@ -344,21 +376,63 @@ function baja(){PICK=null;
  var seguir=function(){
   pantalla(buscadorHtml('¿Qué alumno deja el cursillo?')+'<div id="bj"></div>');
   PICK_CB=function(a){el('bj').innerHTML='<div class="card"><h2><span class="paso">2</span>Baja</h2>'+
-   (a[4]>0?'<div class="aviso">⚠️ Debe <b>'+gs(a[4])+'</b>. La deuda queda registrada aunque se dé de baja.</div>':'')+
-   '<label>Último día que viene <span class="req">*</span></label><input type="date" id="bF" value="'+FB.hoy+'">'+
-   '<div class="ayuda">Desde ese día ya no se le generan cuotas nuevas.</div>'+
+   '<div class="fila"><div><label>¿Cuándo avisó que ya no viene? <span class="req">*</span></label><input type="date" id="bA" value="'+FB.hoy+'" onchange="bajaPrevia()"></div>'+
+   '<div><label>Último día que vino <span class="req">*</span></label><input type="date" id="bF" onchange="bajaPrevia()"><div class="ayuda" id="bUv">Buscando en las listas…</div></div></div>'+
+   '<div id="bOp" style="margin-top:10px"></div>'+
    '<label>Motivo</label>'+(FB.motivos.length?'<select id="bM"><option value=""></option>'+FB.motivos.map(function(x){return '<option>'+esc(x)+'</option>';}).join('')+'</select>':'<input id="bM">')+
    '<label>Observación <span class="ayuda">(opcional)</span></label><input id="bO">'+
-   '<button class="btn" id="bB" onclick="guardarBaja()">🚪 Dar de baja</button><div id="bMsg"></div></div>';};
+   '<button class="btn" id="bB" onclick="guardarBaja()">🚪 Dar de baja</button><div id="bMsg"></div></div>';
+   bajaPrevia(true);};
   el('pq').focus();};
  if(FB)seguir();else{msg('Cargando…');pedir('formBaja',{},function(d){FB=d;seguir();},function(e){falla(e);});}}
-function guardarBaja(){var a=PICK,m=el('bMsg');
- if(!el('bF').value){m.innerHTML='<div class="err">Falta la fecha.</div>';return;}
- if(!confirm('¿Dar de baja a '+a[1]+' ('+(a[2]||'')+')\ndesde el '+fecha(el('bF').value)+'?'))return;
+// muestra las dos deudas: cortando el último día que vino o el día que avisó
+var BP_N=0;
+function bajaPrevia(primera){var a=PICK;if(!a||!el('bOp'))return;var n=++BP_N;
+ el('bOp').innerHTML='<div class="ayuda">Calculando la deuda…</div>';
+ pedir('bajaPrevia',{id:a[0],aviso:el('bA').value,ultima:primera?'':el('bF').value},function(r){if(n!==BP_N||!el('bOp'))return;
+  if(primera){if(r.ultimaVez)el('bF').value=r.ultimaVez;el('bUv').textContent=r.ultimaVez?'Según las listas: '+r.ultimaVezTxt+' (se puede cambiar)':'No aparece en las listas: escribila.';}
+  var op=function(v,t,d,chk){return '<label style="display:block;font-weight:normal;margin:6px 0;padding:8px;border:1px solid #ddd;border-radius:8px"><input type="radio" name="bCorte" value="'+v+'"'+(chk?' checked':'')+' style="width:auto"> '+t+
+   (d===null||d===undefined?' <span class="ayuda">(falta la fecha)</span>':' → debe <b>'+gs(d)+'</b>')+'</label>';};
+  el('bOp').innerHTML='<b style="font-size:14px">¿Hasta dónde se cobra?</b>'+
+   op('ultima','Cortar el <b>último día que vino</b>'+(el('bF').value?' ('+fecha(el('bF').value)+')':''),r.deudaUlt,true)+
+   op('aviso','Cortar el <b>día que avisó</b> ('+fecha(el('bA').value)+')',r.deudaAviso,false);},
+  function(e){if(n===BP_N&&el('bOp'))el('bOp').innerHTML='<div class="err">'+esc(e.message||e)+'</div>';});}
+function guardarBaja(){var a=PICK,m=el('bMsg'),c=document.querySelector('input[name=bCorte]:checked'),corte=c?c.value:'ultima';
+ if(!el('bA').value){m.innerHTML='<div class="err">Falta cuándo avisó.</div>';return;}
+ if(!el('bF').value){m.innerHTML='<div class="err">Falta el último día que vino.</div>';return;}
+ var f=corte==='aviso'?el('bA').value:el('bF').value;
+ if(!confirm('¿Dar de baja a '+a[1]+' ('+(a[2]||'')+')?\n\nAvisó el '+fecha(el('bA').value)+' · vino por última vez el '+fecha(el('bF').value)+
+  '\nSe cobra hasta el '+fecha(f)+(corte==='aviso'?' (día que avisó)':' (último día que vino)')))return;
  var b=el('bB');b.disabled=true;b.textContent='Guardando…';
- pedir('baja',{id:a[0],fecha:el('bF').value,motivo:el('bM').value,obs:el('bO').value},function(r){a[3]='Salió';
+ pedir('baja',{id:a[0],fecha:f,ultima:el('bF').value,aviso:el('bA').value,corte:corte,motivo:el('bM').value,obs:el('bO').value},function(r){a[3]='Salió';
    hecho(esc(r.nombre)+' quedó dado de baja de '+esc(r.grupo)+' desde el '+esc(r.fecha)+'.<br><span style="font-weight:normal;font-size:15px">Acordate de sacarlo del grupo de WhatsApp.</span>','🚪 Dar de baja a otro','baja');},
   function(e){b.disabled=false;b.textContent='🚪 Dar de baja';falla(e,'bMsg');});}
+
+// ---------- 🔔 PARA REVISAR (cambios de grupo y salidas que cargó el CSA) ----------
+var REV=null;
+function cargarRevisar(){pedir('revisarLista',{},function(d){REV=d.lista||[];if(enInicio()&&L)inicio();},function(){});}
+function tarjetaRevisar(){if(!REV||!REV.length)return '';
+ return '<div class="card" style="background:#fff2cc;margin-bottom:14px"><h2>🔔 Para revisar ('+REV.length+') <span class="ayuda">cargado desde el panel CSA</span></h2>'+
+  REV.map(function(x){return '<div style="padding:8px 0;border-top:1px solid #e8d9a8">'+(/cambio/i.test(x.tipo)?'🔄 ':'🚪 ')+'<b>'+esc(x.alumno)+'</b> <span class="ayuda">'+esc(x.id)+' · '+esc(x.fecha)+' · '+esc(x.quien)+'</span><br>'+
+   esc(x.detalle)+'<br><button class="mini" onclick="revisar('+x.fila+')">Revisar</button><div id="rv'+x.fila+'"></div></div>';}).join('')+'</div>';}
+function revisar(fila){var d=el('rv'+fila);d.innerHTML='<div class="ayuda">Cargando…</div>';
+ pedir('revisarDetalle',{fila:fila},function(r){
+  if(r.tipo==='cambio'){d.innerHTML='<div style="background:#fff;border-radius:8px;padding:10px;margin-top:6px">Cuota que tiene ahora: <b>'+gs(r.cuota)+'</b>'+(r.cuotaGrupo!==null?' · cuota del grupo nuevo: <b>'+gs(r.cuotaGrupo)+'</b>':'')+
+   '<label>Cuota en el grupo nuevo (Gs.)</label><input id="rvC'+fila+'" inputmode="numeric" oninput="fmt(this)" value="'+(r.cuotaGrupo!==null?Number(r.cuotaGrupo).toLocaleString('es-PY'):Number(r.cuota).toLocaleString('es-PY'))+'">'+
+   '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button class="mini" onclick="revisarOk('+fila+',\'cuota\')">💾 Guardar cuota</button><button class="mini" onclick="revisarOk('+fila+',\'ok\')">✔ Dejar como está</button></div></div>';return;}
+  d.innerHTML='<div style="background:#fff;border-radius:8px;padding:10px;margin-top:6px"><b>¿Hasta dónde se cobra?</b>'+
+   '<label style="font-weight:normal;display:block;margin-top:6px"><input type="radio" name="rvS'+fila+'" value="ultima" checked style="width:auto"> Último día que vino'+(r.ultima?' ('+fecha(r.ultima)+')':'')+' → debe <b>'+gs(r.deudaUlt||0)+'</b></label>'+
+   '<label style="font-weight:normal;display:block;margin-top:6px"><input type="radio" name="rvS'+fila+'" value="aviso" style="width:auto"> Día que avisó'+(r.aviso?' ('+fecha(r.aviso)+')':'')+' → debe <b>'+gs(r.deudaAviso||0)+'</b></label>'+
+   '<div style="margin-top:8px"><button class="mini" onclick="revisarOk('+fila+',\'salida\',\''+esc(r.ultima||'')+'\',\''+esc(r.aviso||'')+'\')">✔ Confirmar</button></div></div>';},
+  function(e){d.innerHTML='<div class="err">'+esc(e.message||e)+'</div>';});}
+function revisarOk(fila,accion,ult,av){var d=el('rv'+fila),p={fila:fila,accion:accion,quien:guardado('gaussSecQuien')};
+ if(accion==='cuota')p.cuota=num(val('rvC'+fila));
+ if(accion==='salida'){var c=document.querySelector('input[name=rvS'+fila+']:checked'),v=c?c.value:'ultima';p.corte=v;p.fecha=v==='aviso'?av:ult;
+  if(!p.fecha){d.insertAdjacentHTML('beforeend','<div class="err">Falta esa fecha.</div>');return;}
+}
+ d.innerHTML='<div class="ayuda">Guardando…</div>';
+ pedir('revisarHecho',p,function(r){REV=(REV||[]).filter(function(x){return x.fila!==fila;});d.innerHTML='<div style="color:#1b8a3a;font-weight:bold">✅ '+esc(r.msg)+'</div>';
+  setTimeout(function(){if(enInicio())inicio();},1500);},function(e){d.innerHTML='<div class="err">'+esc(e.message||e)+'</div>';});}
 
 // ---------- ✏️ CORREGIR / ACTUALIZAR DATOS ----------
 function editar(){PICK=null;
@@ -405,7 +479,12 @@ function cargasSemana(){pantalla('<div class="card"><h2>📒 Cargas de la semana
   '<button id="cs0" onclick="csIr(\'0\')">Esta semana</button><button id="cs1" onclick="csIr(\'1\')">Semana anterior</button><button id="csX" onclick="csIr(\'x\')">Elegir fechas</button></div>'+
   '<div id="csF" style="display:none;margin-top:8px"><div class="fila'+''+'"><div><label>Desde</label><input type="date" id="csD"></div><div><label>Hasta</label><input type="date" id="csH"></div></div>'+
   '<button class="btn" style="margin-top:10px" onclick="csVer({desde:el(\'csD\').value,hasta:el(\'csH\').value})">Ver</button></div>'+
-  '<div class="ayuda" style="margin-top:6px">La semana va de sábado a viernes.</div></div><div id="csR"></div>');csIr(CS_MODO==='x'?'0':CS_MODO);}
+  '<div class="ayuda" style="margin-top:6px">La semana va de sábado a viernes. <button class="mini" id="csOrd" onclick="csCambiarOrden()" style="margin-left:6px">'+csOrdTxt()+'</button></div></div><div id="csR"></div>');csIr(CS_MODO==='x'?'0':CS_MODO);}
+// orden de las cargas: por defecto lo último cargado arriba (el servidor manda de más viejo a más nuevo)
+var CS_ORDEN=guardado('gaussCsOrden')||'nuevo',CS_ULT=null;
+function csOrdTxt(){return CS_ORDEN==='nuevo'?'↓ Más nuevos primero':'↑ Más viejos primero';}
+function csCambiarOrden(){CS_ORDEN=CS_ORDEN==='nuevo'?'viejo':'nuevo';guardado('gaussCsOrden',CS_ORDEN);var b=el('csOrd');if(b)b.textContent=csOrdTxt();if(CS_ULT&&el('csR'))el('csR').innerHTML=csPintar(CS_ULT);}
+function csOrdenar(R){var X={};Object.keys(R).forEach(function(k){X[k]=Array.isArray(R[k])&&k!=='medios'&&CS_ORDEN==='nuevo'?R[k].slice().reverse():R[k];});return X;}
 function csIr(m){CS_MODO=m;['0','1','X'].forEach(function(k){var b=el('cs'+k);if(b)b.className=(k===m||(k==='X'&&m==='x'))?'on':'';});
  el('csF').style.display=m==='x'?'block':'none';if(m!=='x')csVer({anterior:m});}
 function csVer(p){el('csR').innerHTML='<div class="card">Cargando… (unos segundos)</div>';
@@ -417,7 +496,7 @@ function csK(t,v){return '<div class="cs-k"><span>'+esc(t)+'</span><b>'+v+'</b><
 function csMil(n){return Math.round(Number(n)||0).toLocaleString('es-PY');}
 
 function CS_PEDIR(a,p,ok,mal){if(p.desde||p.hasta){NAV++;sbMarca('');pedir(a,p,ok,mal);return;}rapido(a,p,'cargas',p.anterior==='1'?'anterior':'actual',ok,mal);}
-function csPintar(R){var al=function(x){return esc(x.alumno)+' <span class="ayuda">'+esc(x.id)+'</span>';};
+function csPintar(R){CS_ULT=R;R=csOrdenar(R);var al=function(x){return esc(x.alumno)+' <span class="ayuda">'+esc(x.id)+'</span>';};
  var h='<div class="card"><h2>Del '+esc(R.desde)+' al '+esc(R.hasta)+'</h2><div class="cs-res">'+
   csK('Pagos',R.pagos.length+' · Gs. '+csMil(R.tot.pagos))+csK('Inscripciones',R.inscripciones.length)+csK('Cambios de grupo',R.cambios.length)+csK('Bajas',R.bajas.length)+
   csK('Ajustes',R.ajustes.length)+csK('Esperas',R.esperas.length)+csK('Gastos',R.gastos.length+' · Gs. '+csMil(R.tot.gastos))+csK('Anotaciones',R.anotaciones.length)+'</div>'+
