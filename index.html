@@ -135,7 +135,8 @@ function cobOrden(l){var o=COB_O,pr=function(x){return !x.promesa?3:x.promesa.es
  return l.sort(function(a,b){
   if(o==='apellido')return nom(a,b);
   if(o==='grupo')return a.grupo.localeCompare(b.grupo,'es',{numeric:true})||nom(a,b);
-  var d=o==='atraso'?b.dias-a.dias:o==='contacto'?((b.ultimo?b.ultimo.dias:9999)-(a.ultimo?a.ultimo.dias:9999)):o==='promesa'?pr(a)-pr(b):0;
+  var ao=function(x){var c=x.asis?x.asis.c:'';return c==='no'?0:c==='poco'?1:c==='si'?2:3;};
+  var d=o==='asistencia'?ao(a)-ao(b):o==='atraso'?b.dias-a.dias:o==='contacto'?((b.ultimo?b.ultimo.dias:9999)-(a.ultimo?a.ultimo.dias:9999)):o==='promesa'?pr(a)-pr(b):0;
   return d||b.deuda-a.deuda||nom(a,b);});}
 function pintarCob(){if(!COB)return;var c=COB.cobrado,t=COB.tablero,m=COB.meta;
  var h='<div class="card"><h2>💰 Panel de deudas · '+esc(COB.mes)+'</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px">'+
@@ -162,7 +163,7 @@ function pintarCob(){if(!COB)return;var c=COB.cobrado,t=COB.tablero,m=COB.meta;
   '<div class="fila" style="margin-top:6px"><div><label>Grupo</label><select onchange="COB_G=this.value;pintarCob()"><option value="">Todos los grupos</option>'+
   Object.keys(grupos).sort(function(a,b){return a.localeCompare(b,'es',{numeric:true});}).map(function(g){return '<option value="'+esc(g)+'"'+(g===COB_G?' selected':'')+'>'+esc(g)+' ('+grupos[g].n+')</option>';}).join('')+'</select></div>'+
   '<div><label>Ordenar por</label><select onchange="COB_O=this.value;guardado(\'gaussCobO\',COB_O);pintarCob()">'+
-  [['deuda','Más deuda'],['atraso','Más atraso'],['contacto','Hace más que no se le escribe'],['promesa','Promesas primero'],['grupo','Grupo'],['apellido','Apellido']].map(function(o){return '<option value="'+o[0]+'"'+(o[0]===COB_O?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div></div>'+
+  [['deuda','Más deuda'],['atraso','Más atraso'],['asistencia','Asistencia (los que no vienen primero)'],['contacto','Hace más que no se le escribe'],['promesa','Promesas primero'],['grupo','Grupo'],['apellido','Apellido']].map(function(o){return '<option value="'+o[0]+'"'+(o[0]===COB_O?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div></div>'+
   '<div style="margin-top:10px;font-weight:bold">'+l.length+' alumno'+(l.length===1?'':'s')+' · '+gs(tot)+'</div>'+
   (!COB_G&&Object.keys(grupos).length>1?'<details style="margin-top:6px"><summary class="ayuda" style="cursor:pointer">📊 Ver por grupo</summary><table style="width:100%;font-size:14px;margin-top:6px;border-collapse:collapse">'+
    Object.keys(grupos).sort(function(a,b){return grupos[b].d-grupos[a].d;}).map(function(g){return '<tr style="cursor:pointer;border-bottom:1px solid #eee" onclick="COB_G=\''+esc(g).replace(/'/g,"\\'")+'\';pintarCob()"><td style="padding:5px">'+esc(g)+'</td><td>'+grupos[g].n+'</td><td style="text-align:right">'+gs(grupos[g].d)+'</td></tr>';}).join('')+'</table></details>':'')+'</div>';
@@ -176,6 +177,8 @@ function pintarCob(){if(!COB)return;var c=COB.cobrado,t=COB.tablero,m=COB.meta;
    '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><div><b style="font-size:16px">'+esc(x.nombre)+'</b><div class="ayuda">'+esc(x.id)+' · '+esc(x.grupo||'sin grupo')+(x.activo?'':' · '+esc(x.estado))+'</div></div>'+
    '<div style="text-align:right"><b style="font-size:17px;color:#c0392b">'+gs(x.deuda)+'</b><div class="ayuda">'+(x.impagas?x.impagas+' cuota'+(x.impagas>1?'s':''):'')+(x.dias?' · '+x.dias+' días de atraso':'')+'</div></div></div>'+
    '<div style="margin-top:4px;font-size:14px">'+esc(x.detalle)+'</div>'+
+   (x.asis?'<div style="margin-top:6px;font-size:14px"><b>'+esc(x.asis.t)+'</b>'+(x.asis.p!==null?' <span class="ayuda">· '+x.asis.p+'% de asistencia en 30 días</span>':'')+
+    '<span class="ayuda"> · '+(x.asis.ult?'vino por última vez el '+esc(x.asis.ult)+(x.asis.dias!==null?' ('+(x.asis.dias===0?'hoy':'hace '+x.asis.dias+' día'+(x.asis.dias>1?'s':''))+')':''):'no figura que haya venido')+'</span></div>':'')+
    (est?'<div style="margin-top:6px;font-size:14px">'+est+'</div>':'')+'<div style="margin-top:4px">'+con+'</div>'+
    '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+
    (x.waAl?'<a class="mini" style="background:#25d366;text-decoration:none" href="'+esc(x.waAl)+'" target="_blank">📲 Alumno</a>':'<span class="ayuda">📵 sin cel. alumno</span>')+
