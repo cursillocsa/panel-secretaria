@@ -210,7 +210,7 @@ function isoMas2(iso,n){var q=iso.split('-').map(Number),d=new Date(Date.UTC(q[0
 function marcarCob(i,accion){var x=COB_V[i],m=el('cbM'+i),q=val2('cbY'+i);if(!x)return;
  if(!q){m.innerHTML='<div class="err">Elegí quién sos.</div>';return;}
  guardado('gaussSecQuien',q);m.innerHTML='<div class="ayuda">Guardando…</div>';
- var p={id:x.id,accion:accion,quien:q,aquien:val2('cbQ'+i),nota:val2('cbN'+i).trim(),fecha:val2('cbP'+i),deuda:x.deuda};
+ var p={id:x.id,que:accion,quien:q,aquien:val2('cbQ'+i),nota:val2('cbN'+i).trim(),fecha:val2('cbP'+i),deuda:x.deuda};
  pedir('cobranzaMarcar',p,function(){var hoy=COB.hoy.split('-').reverse(),hoyT=Number(hoy[0])+'-'+['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][Number(hoy[1])-1]+'-'+hoy[2];
    if(accion==='promesa'){var f=p.fecha.split('-');x.promesa={fecha:Number(f[2])+'-'+['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][Number(f[1])-1]+'-'+f[0],iso:p.fecha,estado:'vigente',pagado:0};}
    else x.ultimo={fecha:hoyT,dias:0,quien:p.aquien==='responsable'?'Responsable':'Alumno',obs:(accion==='norespondio'?'📵 No respondió':'')+(p.nota?' '+p.nota:'')+' ('+q+')'};
@@ -533,7 +533,7 @@ function revisar(fila){var d=el('rv'+fila);d.innerHTML='<div class="ayuda">Carga
    '<label style="font-weight:normal;display:block;margin-top:6px"><input type="radio" name="rvS'+fila+'" value="aviso" style="width:auto"> Día que avisó'+(r.aviso?' ('+fecha(r.aviso)+')':'')+' → debe <b>'+gs(r.deudaAviso||0)+'</b></label>'+
    '<div style="margin-top:8px"><button class="mini" onclick="revisarOk('+fila+',\'salida\',\''+esc(r.ultima||'')+'\',\''+esc(r.aviso||'')+'\')">✔ Confirmar</button></div></div>';},
   function(e){d.innerHTML='<div class="err">'+esc(e.message||e)+'</div>';});}
-function revisarOk(fila,accion,ult,av){var d=el('rv'+fila),p={fila:fila,accion:accion,quien:guardado('gaussSecQuien')};
+function revisarOk(fila,accion,ult,av){var d=el('rv'+fila),p={fila:fila,que:accion,quien:guardado('gaussSecQuien')};
  if(accion==='cuota')p.cuota=num(val('rvC'+fila));
  if(accion==='salida'){var c=document.querySelector('input[name=rvS'+fila+']:checked'),v=c?c.value:'ultima';p.corte=v;p.fecha=v==='aviso'?av:ult;
   if(!p.fecha){d.insertAdjacentHTML('beforeend','<div class="err">Falta esa fecha.</div>');return;}
