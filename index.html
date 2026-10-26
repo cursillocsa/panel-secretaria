@@ -123,7 +123,7 @@ cargar();
 
 // ---------- 💰 COBRANZA (Liz y Osvaldo) ----------
 var COB=null,COB_F=guardado('gaussCobF')||'cuotas2',COB_G='',COB_O=guardado('gaussCobO')||'deuda',COB_AB={},COB_V=[];
-function cobranza(){pantalla('<div class="card">Cargando cobranza… (unos segundos)</div>');
+function cobranza(){pantalla('<div class="card">Cargando panel de deudas… (unos segundos)</div>');
  rapido('cobranza',{},'cobranza','todo',function(d){COB=d;pintarCob();},function(e){falla(e);});}
 function cK(t,v,sub,col){return '<div style="background:'+(col||'#f3f5f9')+';border-radius:10px;padding:10px"><div style="font-size:11px;color:#555;text-transform:uppercase">'+t+'</div>'+
  '<div style="font-size:20px;font-weight:bold;margin-top:2px">'+v+'</div>'+(sub?'<div class="ayuda" style="margin-top:2px">'+sub+'</div>':'')+'</div>';}
@@ -138,7 +138,7 @@ function cobOrden(l){var o=COB_O,pr=function(x){return !x.promesa?3:x.promesa.es
   var d=o==='atraso'?b.dias-a.dias:o==='contacto'?((b.ultimo?b.ultimo.dias:9999)-(a.ultimo?a.ultimo.dias:9999)):o==='promesa'?pr(a)-pr(b):0;
   return d||b.deuda-a.deuda||nom(a,b);});}
 function pintarCob(){if(!COB)return;var c=COB.cobrado,t=COB.tablero,m=COB.meta;
- var h='<div class="card"><h2>💰 Cobranza · '+esc(COB.mes)+'</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px">'+
+ var h='<div class="card"><h2>💰 Panel de deudas · '+esc(COB.mes)+'</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px">'+
   cK('Deuda de meses anteriores',gs(t.antAct),t.antActN+' alumnos','#f4cccc')+
   cK('Deuda de este mes',gs(t.mesAct),'ya vencido: '+gs(t.mesVencAct)+' · '+t.mesActN+' alumnos','#fff2cc')+
   cK('Cobrado esta semana',gs(c.semAnt+c.semMes),'de deudas anteriores '+gs(c.semAnt)+'<br>del mes '+gs(c.semMes),'#d9ead3')+
@@ -229,7 +229,7 @@ function guardarMeta(){var r=el('mtR'),mo=num(val2('mtM')),q=val2('mtQ').trim();
 function inicio(){NAV++;sbMarca('');if(FORMS_NUEVOS){ponerForms(FORMS_NUEVOS);FORMS_NUEVOS=null;}el('volver').style.display='none';msg('');window.scrollTo(0,0);
  el('app').innerHTML='<div class="botones">'+
   '<a class="bgrande b2" href="'+PANEL_COBRO+'" target="_blank">💵 Estado de cuenta y cobros<small>Ver deuda, cuotas y pagos · cargar pago · comprobante · ajustes</small></a>'+
-  '<button class="bgrande b1" style="background:#b71c1c" onclick="cobranza()">💰 Cobranza<small>Deudas de 2 meses o más · WhatsApp · promesas de pago · metas del mes</small></button>'+
+  '<button class="bgrande b1" style="background:#b71c1c" onclick="cobranza()">💰 Panel de deudas<small>Deudas de 2 meses o más · WhatsApp · promesas de pago · metas del mes</small></button>'+
   '<button class="bgrande b1" onclick="inscribir()">📝 Inscribir alumno nuevo<small>Datos del alumno + grupo + cuota</small></button>'+
   '<button class="bgrande b1" style="background:#00838f" onclick="reinscribir()">🔁 Reinscribir alumno que volvió<small>Ya estuvo en Gauss y vuelve</small></button>'+
   '<button class="bgrande b1" style="background:#e65100" onclick="gasto()">🧾 Cargar gasto<small>Lo que se paga de la caja de la oficina</small></button>'+
