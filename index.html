@@ -217,6 +217,7 @@ function marcarCob(i,accion){var x=COB_V[i],m=el('cbM'+i),q=val2('cbY'+i);if(!x)
    x.notas=[hoyT+' · '+(accion==='promesa'?'🤝 Prometió pagar el '+p.fecha.split('-').reverse().join('/'):accion==='norespondio'?'📵 No respondió':'Le escribió')+(p.nota?': '+p.nota:'')+' ('+q+')'].concat(x.notas||[]);
    var y=window.scrollY;pintarCob();window.scrollTo(0,y);},function(e){falla(e,'cbM'+i);});}
 function val2(id){var e=el(id);return e?String(e.value||''):'';}
+function val(id){return val2(id);}
 function formMeta(){var m=COB.meta||{},d=el('cobMeta');
  d.innerHTML='<div style="background:#eaf2fb;border-radius:8px;padding:10px;margin-top:8px">'+
   '<div class="fila"><div><label>Meta de '+esc(COB.mes)+' (Gs.)</label><input id="mtM" inputmode="numeric" oninput="fmt(this)" value="'+(m.monto?Number(m.monto).toLocaleString('es-PY'):'')+'"></div>'+
@@ -531,11 +532,32 @@ function revisar(fila){var d=el('rv'+fila);d.innerHTML='<div class="ayuda">Carga
   d.innerHTML='<div style="background:#fff;border-radius:8px;padding:10px;margin-top:6px"><b>¿Hasta dónde se cobra?</b>'+
    '<label style="font-weight:normal;display:block;margin-top:6px"><input type="radio" name="rvS'+fila+'" value="ultima" checked style="width:auto"> Último día que vino'+(r.ultima?' ('+fecha(r.ultima)+')':'')+' → debe <b>'+gs(r.deudaUlt||0)+'</b></label>'+
    '<label style="font-weight:normal;display:block;margin-top:6px"><input type="radio" name="rvS'+fila+'" value="aviso" style="width:auto"> Día que avisó'+(r.aviso?' ('+fecha(r.aviso)+')':'')+' → debe <b>'+gs(r.deudaAviso||0)+'</b></label>'+
-   '<div style="margin-top:8px"><button class="mini" onclick="revisarOk('+fila+',\'salida\',\''+esc(r.ultima||'')+'\',\''+esc(r.aviso||'')+'\')">✔ Confirmar</button></div></div>';},
+   '<label style="font-weight:normal;display:block;margin-top:6px"><input type="radio" name="rvS'+fila+'" value="perso" style="width:auto" onchange="rvPerso('+fila+')"> 💰 <b>Cobro personalizado</b> (ver su estado de cuenta y decidir cuánto)</label>'+
+   '<div id="rvP'+fila+'"></div>'+
+   '<div style="margin-top:8px"><button class="mini" onclick="revisarOk('+fila+',\'salida\',\''+esc(r.ultima||'')+'\',\''+esc(r.aviso||'')+'\')">✔ Confirmar</button></div></div>';RV[fila]=r;
+  [].forEach.call(document.querySelectorAll('input[name=rvS'+fila+']'),function(x){if(x.value!=='perso')x.onchange=function(){el('rvP'+fila).innerHTML='';};});},
   function(e){d.innerHTML='<div class="err">'+esc(e.message||e)+'</div>';});}
+var RV={};
+// 💰 cobro personalizado: estado de cuenta + fecha de salida + cuánto se le cobra (la diferencia va como ajuste)
+function rvPerso(fila){var r=RV[fila],b=el('rvP'+fila);if(!r||!b)return;
+ var tb=(r.cuotas||[]).length?'<div style="overflow-x:auto"><table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:6px"><tr style="background:#eef2f8"><th style="text-align:left;padding:4px">Cuota</th><th style="text-align:left">Vence</th><th style="text-align:right">Monto</th><th style="text-align:right">Pagado</th><th style="text-align:right">Saldo</th><th>Estado</th></tr>'+
+  r.cuotas.map(function(c){return '<tr style="border-top:1px solid #eee"><td style="padding:4px">'+esc(c.concepto)+'</td><td>'+esc(c.vence)+'</td><td style="text-align:right">'+gs(c.monto)+(c.multa?'<br><span class="ayuda">+ multa '+gs(c.multa)+'</span>':'')+'</td><td style="text-align:right">'+(c.pagado?gs(c.pagado):'–')+'</td><td style="text-align:right"><b>'+(c.saldo>0?gs(c.saldo):'–')+'</b></td><td>'+esc(c.estado)+'</td></tr>';}).join('')+'</table></div>':'<div class="ayuda">No tiene cuotas generadas.</div>';
+ b.innerHTML='<div style="background:#f3f8ff;border:1px solid #cfe0f5;border-radius:8px;padding:10px;margin-top:8px">'+
+  '<div>🙋 Vino por última vez el <b>'+(r.ultima?fecha(r.ultima):'–')+'</b> · avisó el <b>'+(r.aviso?fecha(r.aviso):'–')+'</b> · hoy debe <b>'+gs(r.deudaHoy||0)+'</b></div>'+tb+
+  '<div class="fila" style="margin-top:6px"><div><label>Fecha de salida <span class="ayuda">(hasta dónde corren las cuotas)</span></label><input type="date" id="rvF'+fila+'" value="'+esc(r.ultima||r.aviso||'')+'" onchange="rvDeuda('+fila+')"></div>'+
+  '<div><label>Debe con esa salida</label><div id="rvD'+fila+'" style="padding:10px 0;font-weight:bold">'+gs(r.deudaUlt||0)+'</div></div></div>'+
+  '<label>¿Cuánto se le cobra en total? (Gs.)</label><input id="rvM'+fila+'" inputmode="numeric" oninput="fmt(this)" value="'+Number(r.deudaUlt||0).toLocaleString('es-PY')+'">'+
+  '<div class="ayuda">Si es menos de lo que debe, la diferencia queda como <b>descuento</b> en AJUSTES; si es más, como <b>recargo</b>.</div>'+
+  '<div class="fila"><div><label>Motivo</label><input id="rvMo'+fila+'" placeholder="ej. se le cobra media cuota de octubre"></div><div><label>Autorizó</label><input id="rvA'+fila+'"></div></div><div id="rvPm'+fila+'"></div></div>';}
+function rvDeuda(fila){var r=RV[fila],f=val('rvF'+fila),d=el('rvD'+fila);if(!r||!f||!d)return;d.textContent='calculando…';
+ pedir('bajaPrevia',{id:r.id,ultima:f,aviso:r.aviso||f},function(x){d.textContent=gs(x.deudaUlt||0);var m=el('rvM'+fila);if(m)m.value=Number(x.deudaUlt||0).toLocaleString('es-PY');},function(){d.textContent='–';});}
 function revisarOk(fila,accion,ult,av){var d=el('rv'+fila),p={fila:fila,que:accion,quien:guardado('gaussSecQuien')};
  if(accion==='cuota')p.cuota=num(val('rvC'+fila));
  if(accion==='salida'){var c=document.querySelector('input[name=rvS'+fila+']:checked'),v=c?c.value:'ultima';p.corte=v;p.fecha=v==='aviso'?av:ult;
+  if(v==='perso'){p.que='personalizado';p.fecha=val('rvF'+fila);p.monto=val('rvM'+fila).trim()===''?'':num(val('rvM'+fila));p.motivo=val('rvMo'+fila).trim();p.autorizo=val('rvA'+fila).trim();
+   var e=!p.fecha?'Elegí la fecha de salida.':p.monto===''?'Escribí cuánto se le cobra.':!p.motivo?'Escribí el motivo.':!p.autorizo?'Escribí quién autorizó.':'';
+   if(e){var mm=el('rvPm'+fila);if(mm)mm.innerHTML='<div class="err">'+e+'</div>';return;}
+   if(!confirm('Cobro personalizado:\nSalida el '+fecha(p.fecha)+'\nSe le cobra '+gs(p.monto)+'\n\n¿Confirmás?'))return;}
   if(!p.fecha){d.insertAdjacentHTML('beforeend','<div class="err">Falta esa fecha.</div>');return;}
 }
  d.innerHTML='<div class="ayuda">Guardando…</div>';
