@@ -230,7 +230,7 @@ function guardarMeta(){var r=el('mtR'),mo=num(val2('mtM')),q=val2('mtQ').trim();
  pedir('cobranzaMeta',{monto:mo,cuenta:val2('mtC'),quien:q},function(){COB.meta={monto:mo,cuenta:val2('mtC'),por:q,fecha:'recién'};pintarCob();},function(e){falla(e,'mtR');});}
 
 // ---------- INICIO: botones grandes ----------
-function inicio(){NAV++;sbMarca('');if(FORMS_NUEVOS){ponerForms(FORMS_NUEVOS);FORMS_NUEVOS=null;}el('volver').style.display='none';msg('');window.scrollTo(0,0);
+function inicio(desdeHist){if(!desdeHist)HIST=[];NAV++;sbMarca('');if(FORMS_NUEVOS){ponerForms(FORMS_NUEVOS);FORMS_NUEVOS=null;}el('volver').style.display='none';msg('');window.scrollTo(0,0);
  el('app').innerHTML='<div class="botones">'+
   '<a class="bgrande b2" href="'+PANEL_COBRO+'" target="_blank">💵 Estado de cuenta y cobros<small>Ver deuda, cuotas y pagos · cargar pago · comprobante · ajustes</small></a>'+
   '<button class="bgrande b1" style="background:#b71c1c" onclick="cobranza()">💰 Panel de deudas<small>Deudas de 2 meses o más · WhatsApp · promesas de pago · metas del mes</small></button>'+
@@ -396,7 +396,16 @@ function pElegir(id){var a=L.alumnos.filter(function(x){return x[0]===id;})[0];P
  el('psel').innerHTML='<div class="aviso" style="background:#d9ead3"><b>'+esc(a[1])+'</b><br>'+esc(a[0])+' · '+esc(a[2]||'sin grupo')+' · '+esc(a[3]||'')+'</div>';
  if(PICK_CB)PICK_CB(a);}
 var PICK_CB=null;
-function pantalla(h){NAV++;sbMarca('');el('volver').style.display='inline-block';msg('');window.scrollTo(0,0);el('app').innerHTML=h;}
+
+// ◀ Volver atrás con el gesto del celular (deslizar) o la flecha del navegador: cada pantalla queda en el historial
+var HIST=[],HIST_OK=!!(window.history&&history.pushState);
+function guardarPantalla(){if(!HIST_OK||!el('app'))return;var v=el('volver')?el('volver').style.display:'';
+ HIST.push({h:el('app').innerHTML,y:window.scrollY,v:v});if(HIST.length>30)HIST.shift();try{history.pushState({gauss:HIST.length},'');}catch(e){}}
+window.addEventListener('popstate',function(){if(typeof NAV!=='undefined')NAV++;var s=HIST.pop();
+ if(!s||s.v==='none'||s.v===''){HIST=[];inicio(true);return;}
+ el('app').innerHTML=s.h;if(el('volver'))el('volver').style.display=s.v;if(typeof msg==='function')msg('');try{if(typeof sbMarca==='function')sbMarca('');}catch(e){}
+ setTimeout(function(){window.scrollTo(0,s.y);},0);});
+function pantalla(h){guardarPantalla();NAV++;sbMarca('');el('volver').style.display='inline-block';msg('');window.scrollTo(0,0);el('app').innerHTML=h;}
 function nonce(){return Date.now()+'-'+Math.random().toString(36).slice(2);}
 function hoyIso(){var d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
 function hecho(t,otra,fn){pantalla('<div class="card ok"><b class="big">✅ '+t+'</b>'+
