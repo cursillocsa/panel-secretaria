@@ -323,7 +323,7 @@ function formulario(idExistente){
   '<div><label>1er vencimiento <span class="ayuda">(vacío = automático)</span></label><input type="date" id="v1"></div></div>'+
   (FORM.becas.length?'<label>Beca <span class="ayuda">(opcional)</span></label><select id="be"><option value=""></option>'+FORM.becas.map(function(b){return '<option>'+esc(b)+'</option>';}).join('')+'</select>':'')+
   '<label>Observaciones <span class="ayuda">(opcional)</span></label><input id="ob">'+
-  '<div style="margin-top:18px;padding-top:10px;border-top:1px solid #ddd"><label style="margin-top:0"><input type="checkbox" id="incL" onchange="incLibros()"> 📚 Incluir libros</label><div id="libI"></div></div>'+
+  '<div style="margin-top:18px;padding-top:10px;border-top:1px solid #ddd"><label style="margin-top:0"><input type="checkbox" id="incL" onchange="incLibros()"> 📚 <b>Lleva libros</b> <span class="ayuda">(Matemática 1, Matemática 2, Ejercitario CPI…)</span></label><div id="libI"></div></div>'+
   '</div>'+pagoInsHtml()+'<button class="btn" id="bg" onclick="guardar()">💾 Inscribir</button><div id="gm"></div></div>';
  el('form').innerHTML=h;
  el('form').addEventListener('input',ipSug);el('form').addEventListener('change',ipSug);setTimeout(ipSug,0);
@@ -337,7 +337,7 @@ function parecidos(){var c=FORM.campos.filter(function(x){return x.req;});
  r.innerHTML=h.length?'<div class="aviso">⚠️ ¿Ya existe? '+h.map(function(x){return '<br><b>'+esc(x[1])+'</b> ('+esc(x[0])+' · '+esc(x[2]||'sin grupo')+') <button class="mini" onclick="formulario(\''+esc(x[0])+'\')">Es este</button>';}).join('')+'</div>':'';}
 
 function opsUnicos(k){var u={};FORM.grupos.forEach(function(g){if(g[k])u[g[k]]=1;});return '<option value=""></option>'+Object.keys(u).sort().map(function(x){return '<option>'+esc(x)+'</option>';}).join('');}
-function modoReserva(){var r=el('resv').checked;el('resDatos').style.display=r?'block':'none';el('insDatos').style.display=r?'none':'block';el('bg').textContent=r?'📌 Guardar reserva':'💾 Inscribir';}
+function modoReserva(){var r=el('resv').checked;el('resDatos').style.display=r?'block':'none';el('insDatos').style.display=r?'none':'block';ipSug();ipRes();}
 function grupoSel(){var c=el('gr').value;return FORM.grupos.filter(function(g){return g.cod===c;})[0];}
 function cambioGrupo(){var g=grupoSel();if(!g)return;
  el('ini').value=g.inicio&&g.inicio>FORM.hoy?g.inicio:FORM.hoy;EST.toco=false;cambioPlan();}
@@ -357,7 +357,8 @@ function guardar(forzar,cerrar){var m=el('gm'),g=grupoSel(),datos={grupo:el('gr'
    if(v!==''&&v!==false)datos.alumno[c.j]=v;});
   if(falta){m.innerHTML='<div class="err">Falta completar: '+esc(falta)+' (marcado en rojo).</div>';return;}
   nombre=FORM.campos.filter(function(c){return c.req;}).map(function(c){return el('al'+c.j).value.trim();}).join(', ');}
- var PG=ipLeer();if(PG&&PG.error){m.innerHTML='<div class="err">'+esc(PG.error)+'</div>';return;}EST.pago=PG;
+ var VL=null;if(!(el('resv')&&el('resv').checked)&&el('incL')&&el('incL').checked){VL=leerItemsI();if(VL.error){m.innerHTML='<div class="err">'+esc(VL.error)+'</div>';return;}}
+ var PG=ipLeer(VL);if(PG&&PG.error){m.innerHTML='<div class="err">'+esc(PG.error)+'</div>';return;}EST.pago=PG;
  if(el('resv')&&el('resv').checked){                       // 📌 solo reservar lugar
   var cu=el('riC').value,mo=el('riM').value;if(!cu){m.innerHTML='<div class="err">Elegí el curso que le interesa.</div>';return;}
   var res={reserva:1,interes:cu+(mo?' · '+mo:''),idExistente:EST.id||undefined,alumno:datos.alumno};
@@ -365,26 +366,25 @@ function guardar(forzar,cerrar){var m=el('gm'),g=grupoSel(),datos={grupo:el('gr'
   if(!confirm('¿Guardar la reserva de '+(a0?a0[1]:nombre)+'?\n\nLe interesa: '+res.interes+'\nNo se inscribe en ningún grupo ni genera cuotas.'+(PG?'\n\n💵 Paga hoy: '+PG.txt:'\n\n⏳ Todavía no paga nada.')))return;
   var b0=el('bg');b0.disabled=true;b0.textContent='Guardando…';
   pedir('inscribir',{datos:JSON.stringify(res),forzar:forzar?'1':'',nonce:Date.now()+'-'+Math.random().toString(36).slice(2)},listo,
-   function(e){b0.disabled=false;b0.textContent='📌 Guardar reserva';var t=String(e.message||e);
+   function(e){b0.disabled=false;ipBoton();var t=String(e.message||e);
     if(t.indexOf('REPETIDO:')===0){if(confirm(t.replace('REPETIDO: ','')+'\n\n¿Es otra persona con el mismo nombre? (Aceptar = cargar igual)'))guardar(true);return;}falla(e,'gm');});
   return;}
  if(!g){m.innerHTML='<div class="err">Elegí el grupo.</div>';return;}
  if(!datos.inicio){m.innerHTML='<div class="err">Falta la fecha en que empieza.</div>';return;}
  if(!datos.monto&&!datos.beca){m.innerHTML='<div class="err">Falta el monto.</div>';return;}
- EST.venta=null;
- if(el('incL')&&el('incL').checked){var V=leerVenta('I');if(V.error){m.innerHTML='<div class="err">📚 '+esc(V.error)+'</div>';return;}EST.venta=V;}
+ EST.venta=PG&&PG.venta?{params:PG.venta,detalle:VL.detalle,total:VL.total}:null;
  if(!forzar&&!cerrar){var a=EST.id?L.alumnos.filter(function(x){return x[0]===EST.id;})[0]:null;
   if(!confirm('¿Inscribir a '+(a?a[1]:nombre)+'?\n\nGrupo: '+g.nombre+'\nEmpieza: '+fecha(datos.inicio)+'\n'+datos.plan+': '+gs(datos.monto)+(datos.beca?'\nBeca: '+datos.beca:'')+
-   (EST.venta?'\n\n📚 '+EST.venta.detalle+' = '+gs(EST.venta.total):'')+(PG?'\n\n💵 Paga hoy: '+PG.txt:'\n\n⏳ Todavía no paga nada.')))return;}
+   (PG?'\n\n💵 Cobra hoy: '+PG.txt:'\n\n⏳ Todavía no paga nada.')))return;}
  var b=el('bg');b.disabled=true;b.textContent='Guardando…';m.innerHTML='';
  pedir('inscribir',{datos:JSON.stringify(datos),forzar:forzar?'1':'',cerrar:cerrar?'1':'',nonce:Date.now()+'-'+Math.random().toString(36).slice(2)},listo,
-  function(e){b.disabled=false;b.textContent='💾 Inscribir';var t=String(e.message||e);
+  function(e){b.disabled=false;ipBoton();var t=String(e.message||e);
    if(t.indexOf('REPETIDO:')===0){if(confirm(t.replace('REPETIDO: ','')+'\n\n¿Es otra persona con el mismo nombre? (Aceptar = cargar igual)'))guardar(true);return;}
    if(t.indexOf('ABIERTA:')===0){if(confirm(t.replace('ABIERTA: ','')+'\n\n¿Dejó de venir y ahora vuelve? Aceptar = esa inscripción se cierra el día antes de la nueva y queda inscripto en '+g.nombre+'.\n\n(Si sigue viniendo y solo cambia de grupo, cancelá y usá 🔄 Cambiar de grupo.)'))guardar(forzar,true);return;}
    falla(e,'gm');});}
 
 function listo(r){window.scrollTo(0,0);el('volver').style.display='inline-block';
- var pagoHoy=EST.pago;EST.pago=null;if(pagoHoy&&r&&r.id)setTimeout(function(){pagarIns(pagoHoy,r.id);},50);
+ var pagoHoy=EST.pago;EST.pago=null;if(pagoHoy&&pagoHoy.p&&r&&r.id)setTimeout(function(){pagarIns(pagoHoy,r.id);},50);
  if(NUEVO_INS&&r&&r.id&&!r.reserva){var nx=NUEVO_INS;NUEVO_INS=null;   // 🆕 el nombre de la lista pasa a ser el del alumno inscripto
   setTimeout(function(){pedirCSA('nuevoResolver',{clave:nx.clave,modo:'inscripto',id:r.id},function(q){NUEVOS=(NUEVOS||[]).filter(function(y){return y.clave!==nx.clave;});
     var a=el('app');if(a)a.insertAdjacentHTML('afterbegin','<div class="card" style="background:#eef5fc">🆕 '+esc(q.msg)+'</div>');},
@@ -407,21 +407,23 @@ function listo(r){window.scrollTo(0,0);el('volver').style.display='inline-block'
  if(venta){var q=venta.params;q.id=r.id;pedir('venderLibros',q,function(x){el('libR').className='ok';el('libR').innerHTML='📚 <b>Libros guardados en CAJA:</b> '+esc(x.detalle)+' = <b>'+gs(x.total)+'</b>';},
   function(e){el('libR').innerHTML='<span class="err">⚠️ La inscripción quedó, pero los libros no se guardaron: '+esc(String(e.message||e))+'. Cargalos con 📚 Venta de libros.</span>';});}}
 
-// ---------- 💵 PAGO AL INSCRIBIRSE (va directo a CAJA, igual que desde Pagos) ----------
+// ---------- 💵 ¿QUÉ PAGA HOY? (matrícula, libros y cuota en un solo cobro; en CAJA quedan filas separadas) ----------
+// Orden: primero la matrícula, después los libros y lo que sobra va a la cuota. Los libros se pagan sí o sí.
 var IP_ON=true,IPX=[],IPN=0;
 function pagoInsHtml(){if(!L||!L.opciones)return '';var o=L.opciones,hy=L.hay||{};IP_ON=true;IPX=[];
  var tipoDef=(o.tipo.filter(function(t){return /CUOTA|MATR/i.test(t);})[0])||'';
  var procDef=guardado('gaussSecProc')||(o.proc.filter(function(p){return sa(p)===sa(L.oficina);})[0])||'';
  var sel=function(id,l,def,extra){return '<select id="'+id+'"'+(extra||'')+'><option value=""></option>'+l.map(function(x){return '<option'+(x===def?' selected':'')+'>'+esc(x)+'</option>';}).join('')+'</select>';};
  return '<div id="ipBox" style="margin-top:18px;padding-top:10px;border-top:1px solid #ddd">'+
-  '<div id="ipSi" style="background:#eef7ee;border-radius:8px;padding:10px">'+
-   '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><b style="font-size:16px">💵 Pago al inscribirse</b>'+
-   '<button type="button" class="mini" style="background:#666" onclick="pagoIns(false)">⏳ Todavía no realizó ningún pago</button></div>'+
-   '<div class="ayuda">Se guarda en CAJA junto con la inscripción (primero la matrícula, después la primera cuota).</div>'+
-   '<div id="ipSug" style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"></div>'+
-   '<label>Monto que paga hoy (Gs.) <span class="req">*</span></label><input id="ipMo" inputmode="numeric" oninput="fmt(this);ipRes()">'+
+  '<div id="ipSi" style="background:#eef7ee;border-radius:10px;padding:12px;border:2px solid #b6d7a8">'+
+   '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><b style="font-size:18px">💵 ¿Qué paga hoy?</b>'+
+   '<button type="button" class="mini" style="background:#666" onclick="pagoIns(false)">⏳ Todavía no pagó nada</button></div>'+
+   '<div class="ayuda">Un solo cobro: matrícula, libros y cuota. Primero se cubre la matrícula, después los libros y lo que sobra va a la cuota.</div>'+
+   '<div id="ipSug" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"></div>'+
+   '<label>TOTAL que paga hoy (Gs.) <span class="req">*</span></label><input id="ipMo" inputmode="numeric" oninput="fmt(this);ipRes()" style="font-size:20px;font-weight:bold">'+
+   '<div id="ipDes"></div>'+
    '<div class="fila"><div><label id="ipMeL">Medio <span class="req">*</span></label>'+sel('ipMe',o.medio,'',' onchange="ipRes()"')+'</div>'+
-   '<div><label>Concepto <span class="req">*</span></label>'+sel('ipTi',o.tipo,tipoDef)+'</div></div>'+
+   '<div><label>Concepto <span class="ayuda">(matrícula y cuota)</span> <span class="req">*</span></label>'+sel('ipTi',o.tipo,tipoDef)+'</div></div>'+
    '<div id="ipPartes"></div><div id="ipRes"></div>'+
    '<button type="button" class="mini" style="margin-top:8px" onclick="ipAgregar()">➕ Pagó con otro medio también</button>'+
    '<div class="fila"><div><label>Cobró <span class="req">*</span></label>'+sel('ipCo',o.cobro,guardado('gaussSecCobro'))+'</div>'+
@@ -429,17 +431,19 @@ function pagoInsHtml(){if(!L||!L.opciones)return '';var o=L.opciones,hy=L.hay||{
    '<div class="fila"><div><label>Comprobante</label>'+sel('ipTc',o.tipoComp,'')+'</div><div><label>N° comprobante <span class="ayuda">(opcional)</span></label><input id="ipCm"></div></div>'+
    (hy.cargIng?'<label style="font-weight:normal;margin-top:10px"><input id="ipCi" type="checkbox" style="width:auto"> 🖥️ Ya lo cargué en Ingenia</label>':'')+
   '</div>'+
-  '<div id="ipNo" style="display:none;background:#f3f3f3;border-radius:8px;padding:10px">⏳ <b>Todavía no realizó ningún pago.</b> '+
+  '<div id="ipNo" style="display:none;background:#f3f3f3;border-radius:8px;padding:10px">⏳ <b>Todavía no pagó nada.</b> '+
    '<button type="button" class="mini" onclick="pagoIns(true)">💵 Sí pagó</button></div></div>';}
-function pagoIns(si){IP_ON=si;el('ipSi').style.display=si?'block':'none';el('ipNo').style.display=si?'none':'block';}
-// botones rápidos: solo matrícula / matrícula + primera cuota (con lo que está escrito en el formulario)
-function ipSug(){var b=el('ipSug');if(!b)return;var matr=0;
- if(!EST.id&&FORM)FORM.campos.forEach(function(c){if(/MATR/i.test(c.titulo)){var e=el('al'+c.j);if(e)matr=num(e.value);}});
+function pagoIns(si){IP_ON=si;el('ipSi').style.display=si?'block':'none';el('ipNo').style.display=si?'none':'block';ipBoton();}
+function ipMatr(){var matr=0;if(!EST.id&&FORM)FORM.campos.forEach(function(c){if(/MATR/i.test(c.titulo)){var e=el('al'+c.j);if(e)matr=num(e.value);}});return matr;}
+// botones rápidos (con lo que está escrito en el formulario)
+function ipSug(){var b=el('ipSug');if(!b)return;var matr=ipMatr(),lib=libTotI();
  var reserva=el('resv')&&el('resv').checked,cu=reserva?0:num(val2('mo')),con=!reserva&&el('pl')&&/contado|completo|unico|único/i.test(el('pl').value),l=[];
- if(matr>0)l.push(['Solo matrícula',matr]);
- if(cu>0)l.push([(matr>0?'Matrícula + ':'')+(con?'pago total':'1ª cuota'),matr+cu]);
+ var nom=function(extra){return [matr>0?'Matrícula':'',lib>0?'libros':'',extra].filter(function(x){return x;}).join(' + ').replace(/^l/,'L');};
+ if(matr>0||lib>0)l.push([nom(''),matr+lib]);
+ if(cu>0)l.push([nom(con?'pago total':'1ª cuota'),matr+lib+cu]);
  var h=l.map(function(x){return '<button type="button" class="mini" style="background:#2e7d32" onclick="ipPoner('+x[1]+')">'+esc(x[0])+' · '+gs(x[1])+'</button>';}).join('');
- if(b.getAttribute('data-h')!==h){b.innerHTML=h;b.setAttribute('data-h',h);}}   // solo si cambió (si no, se pierde el toque)
+ if(b.getAttribute('data-h')!==h){b.innerHTML=h;b.setAttribute('data-h',h);}   // solo si cambió (si no, se pierde el toque)
+ ipRes();}
 function ipPoner(n){el('ipMo').value=Number(n).toLocaleString('es-PY');ipRes();}
 function ipAgregar(){var k=++IPN;IPX.push(k);
  el('ipPartes').insertAdjacentHTML('beforeend','<div class="fila" id="ipr'+k+'" style="background:#fff;border-radius:8px;padding:0 8px 8px;margin-top:8px">'+
@@ -449,29 +453,53 @@ function ipAgregar(){var k=++IPN;IPX.push(k);
 function ipQuitar(k){var r=el('ipr'+k);if(r)r.remove();IPX=IPX.filter(function(x){return x!==k;});ipRes();}
 function ipPartes(){if(!IPX.length)return null;var tot=num(val2('ipMo')),ex=IPX.map(function(k){return {monto:num(val2('ipp'+k)),medio:val2('ipm'+k)};});
  return [{monto:tot-ex.reduce(function(s,x){return s+x.monto;},0),medio:val2('ipMe')}].concat(ex);}
-function ipRes(){var b=el('ipRes');if(!b)return;var P=ipPartes();
- el('ipMeL').innerHTML=(P?'Medio de la parte 1 ':'Medio ')+'<span class="req">*</span>';
+// desglose: matrícula → libros → cuota
+function ipDesglose(){var tot=num(val2('ipMo')),matr=ipMatr(),lib=libTotI(),r=tot;
+ var aM=Math.min(r,matr);r-=aM;var aL=Math.min(r,lib);r-=aL;return {tot:tot,matr:matr,lib:lib,aM:aM,aL:aL,cuota:r};}
+function ipRes(){var b=el('ipRes');if(!b)return;var P=ipPartes(),D=ipDesglose(),d=el('ipDes');
+ if(d)d.innerHTML=D.tot>0&&(D.matr||D.lib)?'<div style="background:#fff;border-radius:8px;padding:8px;margin-top:6px;font-size:14px">'+
+  (D.matr?'<div>'+(D.aM>=D.matr?'✅':'⚠️')+' Matrícula: <b>'+gs(D.aM)+'</b>'+(D.aM<D.matr?' <span style="color:#c0392b">(faltan '+gs(D.matr-D.aM)+')</span>':'')+'</div>':'')+
+  (D.lib?'<div>'+(D.aL>=D.lib?'✅':'⚠️')+' 📚 Libros: <b>'+gs(D.aL)+'</b>'+(D.aL<D.lib?' <span style="color:#c0392b">(faltan '+gs(D.lib-D.aL)+': los libros se pagan sí o sí)</span>':'')+'</div>':'')+
+  '<div>➡️ A la cuota: <b>'+gs(D.cuota)+'</b></div></div>':'';
+ if(el('ipMeL'))el('ipMeL').innerHTML=(P?'Medio de la parte 1 ':'Medio ')+'<span class="req">*</span>';
  IPX.forEach(function(k,i){el('ipl'+k).innerHTML='Monto de la parte '+(i+2);el('ipq'+k).innerHTML='Medio de la parte '+(i+2);});
  b.innerHTML=P?'<div style="background:#fff;border-radius:8px;padding:8px;margin-top:8px;font-size:14px">'+P.map(function(x,i){return '<div>'+(i?'Parte '+(i+1):'Parte 1 (lo que queda)')+': <b'+(x.monto<=0?' style="color:#c0392b"':'')+'>'+gs(x.monto)+'</b> · '+(esc(x.medio)||'<span style="color:#c0392b">falta el medio</span>')+'</div>';}).join('')+
-  '<b>Total: '+gs(num(val2('ipMo')))+'</b> <span class="ayuda">· en CAJA va una fila por cada medio</span></div>':'';}
-// valida y arma el pago (null = no pagó); {error} si falta algo
-function ipLeer(){if(!IP_ON||!el('ipSi'))return null;var mo=num(val2('ipMo')),P=ipPartes(),hy=L.hay||{};
- if(!(mo>0))return {error:'💵 Escribí el monto que paga hoy (o tocá "Todavía no realizó ningún pago").'};
+  '<b>Total: '+gs(num(val2('ipMo')))+'</b></div>':'';
+ ipBoton();}
+// el botón dice lo que va a pasar
+function ipBoton(){var b=el('bg');if(!b||b.disabled)return;var r=el('resv')&&el('resv').checked,t=num(val2('ipMo'));
+ b.textContent=(r?'📌 Guardar reserva':'💾 Inscribir')+(IP_ON&&el('ipSi')?(t>0?' y cobrar '+gs(t):''):' (sin cobrar)');}
+// valida y arma: pago a CAJA (matrícula y cuota) + venta de libros. null = no pagó; {error} si falta algo
+function ipLeer(VL){var hy=L.hay||{};
+ if(!IP_ON||!el('ipSi')){if(VL)return {error:'📚 Los libros se pagan sí o sí al inscribirse: cargá el pago (tocá "💵 Sí pagó") o destildá "Lleva libros".'};return null;}
+ var mo=num(val2('ipMo')),P=ipPartes(),D=ipDesglose(),lib=VL?VL.total:0;
+ if(!(mo>0))return {error:'💵 Escribí el TOTAL que paga hoy (o tocá "Todavía no pagó nada").'};
  if(hy.medio&&!val2('ipMe'))return {error:'💵 Elegí el medio de pago.'};
  if(P){if(P[0].monto<=0)return {error:'💵 Las otras partes suman más que el total.'};for(var i=1;i<P.length;i++){if(!(P[i].monto>0))return {error:'💵 Escribí el monto de la parte '+(i+1)+'.'};if(!P[i].medio)return {error:'💵 Elegí el medio de la parte '+(i+1)+'.'};}}
+ if(lib&&mo<D.matr+lib)return {error:'💵 Con libros, tiene que pagar al menos '+(D.matr?'la matrícula y ':'')+'los libros: '+gs(D.matr+lib)+'.'};
  if(hy.tipo&&!val2('ipTi'))return {error:'💵 Elegí el concepto del pago.'};
  if(hy.cobro&&!val2('ipCo'))return {error:'💵 Elegí quién cobró.'};
  if(hy.proc&&!val2('ipPr'))return {error:'💵 Elegí PROCESADO EN.'};
- return {monto:mo,txt:gs(mo)+(P?' ('+P.map(function(x){return gs(x.monto)+' '+x.medio;}).join(' + ')+')':(val2('ipMe')?' ('+val2('ipMe')+')':'')),
-  p:{monto:mo,fecha:hoyLocal(),fechaPago:'',medio:P?P[0].medio:val2('ipMe'),tipo:val2('ipTi'),cobro:val2('ipCo'),proc:val2('ipPr'),tipoComp:val2('ipTc'),comp:val2('ipCm'),
-   obs:'Pago al inscribirse',partes:P?JSON.stringify(P):'',cargIng:el('ipCi')&&el('ipCi').checked?'1':'',nonce:Date.now()+'-'+Math.random().toString(36).slice(2)}};}
+ // los libros se cobran con el medio (o la parte) que alcance para pagarlos
+ var partes=(P||[{monto:mo,medio:val2('ipMe')}]).map(function(x){return {monto:x.monto,medio:x.medio};}),libMedio='';
+ if(lib){var k=-1;for(var j=0;j<partes.length;j++)if(partes[j].monto>=lib){k=j;break;}
+  if(k<0)return {error:'💵 Pagó en dos medios y ninguno alcanza para los libros ('+gs(lib)+'). Uno de los dos tiene que cubrirlos.'};
+  libMedio=partes[k].medio;partes[k].monto-=lib;partes=partes.filter(function(x){return x.monto>0;});}
+ var resto=mo-lib,nonce=function(){return Date.now()+'-'+Math.random().toString(36).slice(2);};
+ var comun={cobro:val2('ipCo'),proc:val2('ipPr'),tipoComp:val2('ipTc'),comp:val2('ipCm')};
+ var p=resto>0?{monto:resto,fecha:hoyLocal(),fechaPago:'',medio:partes[0].medio,tipo:val2('ipTi'),cobro:comun.cobro,proc:comun.proc,tipoComp:comun.tipoComp,comp:comun.comp,
+   obs:'Pago al inscribirse',partes:partes.length>1?JSON.stringify(partes):'',cargIng:el('ipCi')&&el('ipCi').checked?'1':'',nonce:nonce()}:null;
+ var venta=lib?{items:JSON.stringify(VL.items),medio:libMedio,cobro:comun.cobro,proc:comun.proc,tipoComp:comun.tipoComp,comp:comun.comp,id:'',nonce:nonce()}:null;
+ var txt=gs(mo)+(P?' ('+P.map(function(x){return gs(x.monto)+' '+x.medio;}).join(' + ')+')':(val2('ipMe')?' ('+val2('ipMe')+')':''))+
+  (D.matr||lib?'\n   → '+[D.matr?'matrícula '+gs(Math.min(mo,D.matr)):'',lib?'libros '+gs(lib)+' ('+VL.detalle+')':'',resto-Math.min(mo,D.matr)>0?'cuota '+gs(resto-Math.min(mo,D.matr)):''].filter(function(x){return x;}).join(' · '):'');
+ return {monto:mo,txt:txt,p:p,venta:venta,txtCaja:p?gs(resto)+(partes.length>1?' ('+partes.map(function(x){return gs(x.monto)+' '+x.medio;}).join(' + ')+')':' ('+partes[0].medio+')'):''};}
 // después de inscribir: el pago a CAJA
 function pagarIns(pg,id,forzar){var a=el('app');if(!a)return;var d=el('ipR');
- if(!d){a.insertAdjacentHTML('afterbegin','<div id="ipR" class="card" style="background:#fff8e1">💵 Guardando el pago de '+esc(pg.txt)+' en CAJA…</div>');d=el('ipR');}
+ if(!d){a.insertAdjacentHTML('afterbegin','<div id="ipR" class="card" style="background:#fff8e1">💵 Guardando el pago de '+esc(pg.txtCaja||pg.txt)+' en CAJA…</div>');d=el('ipR');}
  guardado('gaussSecCobro',pg.p.cobro);guardado('gaussSecProc',pg.p.proc);
  var q={};for(var k in pg.p)q[k]=pg.p[k];q.id=id;q.forzar=forzar?'1':'';
  pedir('pagar',q,function(r){d.style.background='#d9ead3';
-   d.innerHTML='✅ <b>Pago de '+esc(pg.txt)+' guardado en CAJA</b> ('+(r.filas&&r.filas.length>1?'filas '+r.filas.join(' y '):'fila '+r.fila)+'). La deuda se actualiza en 1 minuto.'+
+   d.innerHTML='✅ <b>Pago de '+esc(pg.txtCaja||pg.txt)+' guardado en CAJA</b> ('+(r.filas&&r.filas.length>1?'filas '+r.filas.join(' y '):'fila '+r.fila)+'). La deuda se actualiza en 1 minuto.'+
     (r.fila?'<div style="margin-top:8px"><button class="mini" id="ipCB" onclick="ipComp('+r.fila+',\''+esc(r.clave)+'\')">🧾 Generar comprobante</button></div><div id="ipCR"></div>':'');},
   function(e){var t=String(e.message||e);
    if(t.indexOf('REPETIDA:')===0&&confirm(t.replace('REPETIDA: ','')+'\n\n¿Guardar el pago igual?')){pagarIns(pg,id,true);return;}
@@ -790,20 +818,28 @@ var FL=null;
 function conFL(fn){if(FL)fn();else{msg('Cargando…');pedir('formLibros',{},function(d){FL=d;msg('');fn();},function(e){falla(e);});}}
 function opsL(l,sel){return '<option value=""></option>'+(l||[]).map(function(x){return '<option'+(x===sel?' selected':'')+'>'+esc(x)+'</option>';}).join('');}
 // filas de libros + datos de cobro (k = prefijo: 'V' venta suelta, 'I' en la inscripción)
-function bloqueLibros(k,conAlumno){
+function bloqueLibros(k,conAlumno,sinCobro){
  if(!FL.libros.length)return '<div class="aviso">No encontré libros en la lista de TIPO de CAJA (tienen que decir "Libro…" o "Ejercitario…").</div>';
  var procDef=guardado('gaussSecProc')||(FL.proc.filter(function(p){return sa(p)===sa(FL.oficina);})[0])||'';
  return '<table style="width:100%;border-collapse:collapse;margin-top:6px">'+FL.libros.map(function(l,i){
    return '<tr style="border-bottom:1px solid #eee"><td style="padding:8px 4px"><b>'+esc(l.tipo)+'</b><br><span class="ayuda">Precio c/u</span> <input id="'+k+'p'+i+'" inputmode="numeric" oninput="fmt(this);totL(\''+k+'\')" value="'+(l.precio?Number(l.precio).toLocaleString('es-PY'):'')+'" style="width:120px;font-size:15px;padding:6px"></td>'+
     '<td style="text-align:right;white-space:nowrap"><button type="button" class="mini" onclick="cantL(\''+k+'\','+i+',-1)">−</button> <b id="'+k+'c'+i+'" style="display:inline-block;width:28px;text-align:center;font-size:18px">0</b> <button type="button" class="mini" onclick="cantL(\''+k+'\','+i+',1)">+</button></td></tr>';}).join('')+'</table>'+
-  '<div style="font-size:18px;margin-top:8px">Total: <b id="'+k+'tot">Gs. 0</b></div>'+
+  '<div style="font-size:18px;margin-top:8px">Total'+(sinCobro?' de libros':'')+': <b id="'+k+'tot">Gs. 0</b></div>'+(sinCobro?'':
   '<div class="fila"><div><label>Medio <span class="req">*</span></label><select id="'+k+'me">'+opsL(FL.medio,guardado('gaussLibMedio')||FL.medio.filter(function(m){return /efectivo/i.test(m);})[0])+'</select></div>'+
   '<div><label>Cobró</label><select id="'+k+'co">'+opsL(FL.cobro,guardado('gaussSecCobro'))+'</select></div></div>'+
   '<div class="fila"><div><label>Procesado en <span class="req">*</span></label><select id="'+k+'pr">'+opsL(FL.proc,procDef)+'</select></div>'+
   '<div><label>Comprobante</label><select id="'+k+'tc" onchange="factL(\''+k+'\','+(conAlumno?1:0)+')">'+opsL(FL.tipoComp,FL.tipoComp.filter(function(t){return /recibo/i.test(t);})[0]||'')+'</select></div></div>'+
-  '<div id="'+k+'fx"></div>';}
+  '<div id="'+k+'fx"></div>');}
 function cantL(k,i,d){var e=el(k+'c'+i),n=Math.max(0,(Number(e.textContent)||0)+d);e.textContent=n;totL(k);}
-function totL(k){var t=0;FL.libros.forEach(function(l,i){t+=(Number(el(k+'c'+i).textContent)||0)*num(el(k+'p'+i).value);});el(k+'tot').textContent=gs(t);}
+function totL(k){var t=0;FL.libros.forEach(function(l,i){t+=(Number(el(k+'c'+i).textContent)||0)*num(el(k+'p'+i).value);});el(k+'tot').textContent=gs(t);if(k==='I'){ipSug();ipRes();}}
+// libros elegidos en la inscripción (solo cantidades y precios; el cobro va en "¿Qué paga hoy?")
+function leerItemsI(){var items=[],det=[],tot=0;
+ FL.libros.forEach(function(l,i){var c=Number(el('Ic'+i).textContent)||0,p=num(el('Ip'+i).value);if(c>0){items.push({tipo:l.tipo,cant:c,precio:p});det.push(c+' × '+l.tipo);tot+=c*p;}});
+ if(!items.length)return {error:'📚 Elegí al menos un libro (tocá +) o destildá "Incluir libros".'};
+ if(items.some(function(x){return !x.precio;}))return {error:'📚 Falta el precio de algún libro.'};
+ return {items:items,detalle:det.join(' · '),total:tot};}
+function libTotI(){if(!(el('incL')&&el('incL').checked&&FL&&el('Itot'))||(el('resv')&&el('resv').checked))return 0;var t=0;
+ FL.libros.forEach(function(l,i){var c=el('Ic'+i);if(c)t+=(Number(c.textContent)||0)*num(el('Ip'+i).value);});return t;}
 function factL(k,conAlumno){var f=/factura/i.test(el(k+'tc').value),x=el(k+'fx');
  x.innerHTML=f?'<div class="fila"><div><label>N° de factura <span class="ayuda">(si ya la hiciste)</span></label><input id="'+k+'nf"></div></div>'+
   (conAlumno?'':'<div class="fila"><div><label>RUC <span class="req">*</span></label><input id="'+k+'ruc"></div><div><label>Razón social <span class="req">*</span></label><input id="'+k+'raz"></div></div>'+
@@ -819,8 +855,8 @@ function leerVenta(k,id){var items=[],det=[],tot=0;
  if(el(k+'ruc')){q.factRuc=el(k+'ruc').value.trim();q.factRazon=el(k+'raz').value.trim();if(/factura/i.test(tc)&&!id&&(!q.factRuc||!q.factRazon))return {error:'Para factura sin alumno, completá RUC y razón social.'};}
  guardado('gaussLibMedio',q.medio);guardado('gaussSecCobro',q.cobro);guardado('gaussSecProc',q.proc);
  return {params:q,detalle:det.join(' · '),total:tot};}
-function incLibros(){var on=el('incL').checked;if(!on){el('libI').innerHTML='';return;}
- conFL(function(){el('libI').innerHTML=bloqueLibros('I',true)+'<div class="ayuda">Se cargan en CAJA a nombre del alumno, apenas se guarda la inscripción.</div>';});}
+function incLibros(){var on=el('incL').checked;if(!on){el('libI').innerHTML='';ipSug();ipRes();return;}
+ conFL(function(){el('libI').innerHTML=bloqueLibros('I',true,true)+'<div class="ayuda">Los libros se pagan sí o sí al inscribirse: se cobran abajo, en <b>💵 ¿Qué paga hoy?</b>, junto con la matrícula.</div>';ipSug();ipRes();});}
 function libros(){conFL(function(){PICK=null;PICK_CB=null;
  pantalla('<div class="card"><h2>📚 Venta de libros</h2>'+bloqueLibros('V',false)+
   '<label style="margin-top:14px"><input type="checkbox" id="Val" onchange="libAlumno()"> Es un alumno <span class="ayuda">(opcional: solo si querés que quede a su nombre o pide factura con sus datos)</span></label><div id="Vbus"></div>'+
