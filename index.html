@@ -87,6 +87,8 @@ function ponerForms(d){if(!d)return;var ok=function(x){if(!x||x.error)return nul
  FORM=ok(d.formInscripcion)||FORM;FJ=ok(d.formJustificativo)||FJ;FG=ok(d.formGasto)||FG;FB=ok(d.formBaja)||FB;FL=ok(d.formLibros)||FL;}
 function enInicio(){return el('volver').style.display!=='inline-block';}
 function formsDePlanilla(){pedir('formsTodos',{},function(d){if(enInicio()||!FORM)ponerForms(d);else FORMS_NUEVOS=d;},function(){});}
+function numBusca(q,nums){var d=String(q).replace(/\D/g,'');if(d.length<4||/[a-záéíóúñ]/i.test(q))return false;d=d.replace(/^595/,'').replace(/^0+/,'');if(d.length<3)return false;
+ return String(nums||'').split(' ').some(function(t){return t&&t.indexOf(d)>=0;});}   // 🔎 buscar por CI o celular
 function el(i){return document.getElementById(i);}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function sa(s){return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
@@ -265,7 +267,7 @@ function inscribir(volvio){el('volver').style.display='inline-block';EST={};wind
  if(!FORM){msg('Cargando el formulario…');pedir('formInscripcion',{},function(d){FORM=d;msg('');},function(e){falla(e);});}}
 function buscar(){var q=sa(el('bq').value.trim()),r=el('bres');
  if(!L||q.length<2){r.innerHTML='';return;}
- var p=q.split(/\s+/),h=L.alumnos.filter(function(x){var t=sa(x[0]+' '+x[1]);return p.every(function(w){return t.indexOf(w)>=0;});}).slice(0,8);
+ var p=q.split(/\s+/),h=L.alumnos.filter(function(x){var t=sa(x[0]+' '+x[1]);return p.every(function(w){return t.indexOf(w)>=0;})||numBusca(q,x[5]);}).slice(0,8);
  r.innerHTML=h.length?h.map(function(x){return '<div><span>'+esc(x[1])+'<br><small>'+esc(x[0])+' · '+esc(x[2]||'sin grupo')+' · '+esc(x[3]||'')+'</small></span>'+
   '<button class="mini" onclick="formulario(\''+esc(x[0])+'\')">Inscribir a este</button></div>';}).join(''):'<div class="ayuda" style="border:0">No aparece: es un alumno nuevo.</div>';}
 
@@ -388,7 +390,7 @@ var PICK=null;
 function buscadorHtml(titulo){return '<div class="card"><h2><span class="paso">1</span>'+titulo+'</h2>'+
  '<input id="pq" placeholder="Escribí apellido, nombre o ID…" oninput="pBuscar()" autocomplete="off"><div id="pres" class="res"></div><div id="psel"></div></div>';}
 function pBuscar(){var q=sa(el('pq').value.trim()),r=el('pres');if(!L||q.length<2){r.innerHTML='';return;}
- var p=q.split(/\s+/),h=L.alumnos.filter(function(x){var t=sa(x[0]+' '+x[1]+' '+x[2]);return p.every(function(w){return t.indexOf(w)>=0;});}).slice(0,8);
+ var p=q.split(/\s+/),h=L.alumnos.filter(function(x){var t=sa(x[0]+' '+x[1]+' '+x[2]);return p.every(function(w){return t.indexOf(w)>=0;})||numBusca(q,x[5]);}).slice(0,8);
  r.innerHTML=h.length?h.map(function(x){return '<div><span>'+esc(x[1])+'<br><small>'+esc(x[0])+' · '+esc(x[2]||'sin grupo')+' · '+esc(x[3]||'')+'</small></span>'+
   '<button class="mini" onclick="pElegir(\''+esc(x[0])+'\')">Elegir</button></div>';}).join(''):'<div class="ayuda" style="border:0">No aparece.</div>';}
 function pElegir(id){var a=L.alumnos.filter(function(x){return x[0]===id;})[0];PICK=a;
