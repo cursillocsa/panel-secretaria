@@ -311,7 +311,7 @@ function formulario(idExistente){
  // inscripción
  var mods={};FORM.grupos.forEach(function(g){(mods[g.mod||'Otros']=mods[g.mod||'Otros']||[]).push(g);});
  h+='<div class="card"><h2><span class="paso">3</span>Inscripción</h2>'+
-  '<label style="font-weight:normal;margin:4px 0 8px;background:#f3eefc;border-radius:8px;padding:8px"><input type="checkbox" id="resv" onchange="modoReserva()" style="width:auto"> <b>📌 Solo reservar lugar</b> <span class="ayuda">(todavía no sabe el grupo: se guarda el alumno y la matrícula, sin cuotas)</span></label>'+
+  '<label style="font-weight:normal;margin:4px 0 8px;background:#f3eefc;border-radius:8px;padding:8px"><input type="checkbox" id="resv" onchange="modoReserva()" style="width:auto"> <b>📌 Solo reservar lugar</b> <span class="ayuda">: para quien paga la matrícula para guardar su lugar pero <b>todavía no eligió grupo</b>. No genera cuotas. Queda en <b>📌 Reservas sin grupo</b> (en el inicio) y, cuando decida, se le asigna el grupo desde ahí.</span></label>'+
   '<div id="resDatos" style="display:none"><div class="fila"><div><label>Le interesa: curso <span class="req">*</span></label><select id="riC">'+opsUnicos('curso')+'</select></div>'+
   '<div><label>Modalidad</label><select id="riM">'+opsUnicos('mod')+'</select></div></div></div>'+
   '<div id="insDatos">'+
@@ -324,8 +324,9 @@ function formulario(idExistente){
   (FORM.becas.length?'<label>Beca <span class="ayuda">(opcional)</span></label><select id="be"><option value=""></option>'+FORM.becas.map(function(b){return '<option>'+esc(b)+'</option>';}).join('')+'</select>':'')+
   '<label>Observaciones <span class="ayuda">(opcional)</span></label><input id="ob">'+
   '<div style="margin-top:18px;padding-top:10px;border-top:1px solid #ddd"><label style="margin-top:0"><input type="checkbox" id="incL" onchange="incLibros()"> 📚 Incluir libros</label><div id="libI"></div></div>'+
-  '</div><button class="btn" id="bg" onclick="guardar()">💾 Inscribir</button><div id="gm"></div></div>';
+  '</div>'+pagoInsHtml()+'<button class="btn" id="bg" onclick="guardar()">💾 Inscribir</button><div id="gm"></div></div>';
  el('form').innerHTML=h;
+ el('form').addEventListener('input',ipSug);el('form').addEventListener('change',ipSug);setTimeout(ipSug,0);
  if(NUEVO_INS&&el('gr')){var o0=[].slice.call(el('gr').options).filter(function(o){return o.value===NUEVO_INS.cod;})[0];if(o0){el('gr').value=NUEVO_INS.cod;cambioGrupo();}}
  var f=el('form');window.scrollTo(0,f.offsetTop-10);}
 
@@ -356,11 +357,12 @@ function guardar(forzar,cerrar){var m=el('gm'),g=grupoSel(),datos={grupo:el('gr'
    if(v!==''&&v!==false)datos.alumno[c.j]=v;});
   if(falta){m.innerHTML='<div class="err">Falta completar: '+esc(falta)+' (marcado en rojo).</div>';return;}
   nombre=FORM.campos.filter(function(c){return c.req;}).map(function(c){return el('al'+c.j).value.trim();}).join(', ');}
+ var PG=ipLeer();if(PG&&PG.error){m.innerHTML='<div class="err">'+esc(PG.error)+'</div>';return;}EST.pago=PG;
  if(el('resv')&&el('resv').checked){                       // 📌 solo reservar lugar
   var cu=el('riC').value,mo=el('riM').value;if(!cu){m.innerHTML='<div class="err">Elegí el curso que le interesa.</div>';return;}
   var res={reserva:1,interes:cu+(mo?' · '+mo:''),idExistente:EST.id||undefined,alumno:datos.alumno};
   var a0=EST.id?L.alumnos.filter(function(x){return x[0]===EST.id;})[0]:null;
-  if(!confirm('¿Guardar la reserva de '+(a0?a0[1]:nombre)+'?\n\nLe interesa: '+res.interes+'\nNo se inscribe en ningún grupo ni genera cuotas.'))return;
+  if(!confirm('¿Guardar la reserva de '+(a0?a0[1]:nombre)+'?\n\nLe interesa: '+res.interes+'\nNo se inscribe en ningún grupo ni genera cuotas.'+(PG?'\n\n💵 Paga hoy: '+PG.txt:'\n\n⏳ Todavía no paga nada.')))return;
   var b0=el('bg');b0.disabled=true;b0.textContent='Guardando…';
   pedir('inscribir',{datos:JSON.stringify(res),forzar:forzar?'1':'',nonce:Date.now()+'-'+Math.random().toString(36).slice(2)},listo,
    function(e){b0.disabled=false;b0.textContent='📌 Guardar reserva';var t=String(e.message||e);
@@ -373,7 +375,7 @@ function guardar(forzar,cerrar){var m=el('gm'),g=grupoSel(),datos={grupo:el('gr'
  if(el('incL')&&el('incL').checked){var V=leerVenta('I');if(V.error){m.innerHTML='<div class="err">📚 '+esc(V.error)+'</div>';return;}EST.venta=V;}
  if(!forzar&&!cerrar){var a=EST.id?L.alumnos.filter(function(x){return x[0]===EST.id;})[0]:null;
   if(!confirm('¿Inscribir a '+(a?a[1]:nombre)+'?\n\nGrupo: '+g.nombre+'\nEmpieza: '+fecha(datos.inicio)+'\n'+datos.plan+': '+gs(datos.monto)+(datos.beca?'\nBeca: '+datos.beca:'')+
-   (EST.venta?'\n\n📚 '+EST.venta.detalle+' = '+gs(EST.venta.total):'')))return;}
+   (EST.venta?'\n\n📚 '+EST.venta.detalle+' = '+gs(EST.venta.total):'')+(PG?'\n\n💵 Paga hoy: '+PG.txt:'\n\n⏳ Todavía no paga nada.')))return;}
  var b=el('bg');b.disabled=true;b.textContent='Guardando…';m.innerHTML='';
  pedir('inscribir',{datos:JSON.stringify(datos),forzar:forzar?'1':'',cerrar:cerrar?'1':'',nonce:Date.now()+'-'+Math.random().toString(36).slice(2)},listo,
   function(e){b.disabled=false;b.textContent='💾 Inscribir';var t=String(e.message||e);
@@ -382,6 +384,7 @@ function guardar(forzar,cerrar){var m=el('gm'),g=grupoSel(),datos={grupo:el('gr'
    falla(e,'gm');});}
 
 function listo(r){window.scrollTo(0,0);el('volver').style.display='inline-block';
+ var pagoHoy=EST.pago;EST.pago=null;if(pagoHoy&&r&&r.id)setTimeout(function(){pagarIns(pagoHoy,r.id);},50);
  if(NUEVO_INS&&r&&r.id&&!r.reserva){var nx=NUEVO_INS;NUEVO_INS=null;   // 🆕 el nombre de la lista pasa a ser el del alumno inscripto
   setTimeout(function(){pedirCSA('nuevoResolver',{clave:nx.clave,modo:'inscripto',id:r.id},function(q){NUEVOS=(NUEVOS||[]).filter(function(y){return y.clave!==nx.clave;});
     var a=el('app');if(a)a.insertAdjacentHTML('afterbegin','<div class="card" style="background:#eef5fc">🆕 '+esc(q.msg)+'</div>');},
@@ -403,6 +406,81 @@ function listo(r){window.scrollTo(0,0);el('volver').style.display='inline-block'
   '<div class="ayuda" style="margin-top:10px">Las deudas y listas se actualizan solas en 1 minuto.</div></div>';
  if(venta){var q=venta.params;q.id=r.id;pedir('venderLibros',q,function(x){el('libR').className='ok';el('libR').innerHTML='📚 <b>Libros guardados en CAJA:</b> '+esc(x.detalle)+' = <b>'+gs(x.total)+'</b>';},
   function(e){el('libR').innerHTML='<span class="err">⚠️ La inscripción quedó, pero los libros no se guardaron: '+esc(String(e.message||e))+'. Cargalos con 📚 Venta de libros.</span>';});}}
+
+// ---------- 💵 PAGO AL INSCRIBIRSE (va directo a CAJA, igual que desde Pagos) ----------
+var IP_ON=true,IPX=[],IPN=0;
+function pagoInsHtml(){if(!L||!L.opciones)return '';var o=L.opciones,hy=L.hay||{};IP_ON=true;IPX=[];
+ var tipoDef=(o.tipo.filter(function(t){return /CUOTA|MATR/i.test(t);})[0])||'';
+ var procDef=guardado('gaussSecProc')||(o.proc.filter(function(p){return sa(p)===sa(L.oficina);})[0])||'';
+ var sel=function(id,l,def,extra){return '<select id="'+id+'"'+(extra||'')+'><option value=""></option>'+l.map(function(x){return '<option'+(x===def?' selected':'')+'>'+esc(x)+'</option>';}).join('')+'</select>';};
+ return '<div id="ipBox" style="margin-top:18px;padding-top:10px;border-top:1px solid #ddd">'+
+  '<div id="ipSi" style="background:#eef7ee;border-radius:8px;padding:10px">'+
+   '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><b style="font-size:16px">💵 Pago al inscribirse</b>'+
+   '<button type="button" class="mini" style="background:#666" onclick="pagoIns(false)">⏳ Todavía no realizó ningún pago</button></div>'+
+   '<div class="ayuda">Se guarda en CAJA junto con la inscripción (primero la matrícula, después la primera cuota).</div>'+
+   '<div id="ipSug" style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"></div>'+
+   '<label>Monto que paga hoy (Gs.) <span class="req">*</span></label><input id="ipMo" inputmode="numeric" oninput="fmt(this);ipRes()">'+
+   '<div class="fila"><div><label id="ipMeL">Medio <span class="req">*</span></label>'+sel('ipMe',o.medio,'',' onchange="ipRes()"')+'</div>'+
+   '<div><label>Concepto <span class="req">*</span></label>'+sel('ipTi',o.tipo,tipoDef)+'</div></div>'+
+   '<div id="ipPartes"></div><div id="ipRes"></div>'+
+   '<button type="button" class="mini" style="margin-top:8px" onclick="ipAgregar()">➕ Pagó con otro medio también</button>'+
+   '<div class="fila"><div><label>Cobró <span class="req">*</span></label>'+sel('ipCo',o.cobro,guardado('gaussSecCobro'))+'</div>'+
+   '<div><label>Procesado en <span class="req">*</span></label>'+sel('ipPr',o.proc,procDef)+'</div></div>'+
+   '<div class="fila"><div><label>Comprobante</label>'+sel('ipTc',o.tipoComp,'')+'</div><div><label>N° comprobante <span class="ayuda">(opcional)</span></label><input id="ipCm"></div></div>'+
+   (hy.cargIng?'<label style="font-weight:normal;margin-top:10px"><input id="ipCi" type="checkbox" style="width:auto"> 🖥️ Ya lo cargué en Ingenia</label>':'')+
+  '</div>'+
+  '<div id="ipNo" style="display:none;background:#f3f3f3;border-radius:8px;padding:10px">⏳ <b>Todavía no realizó ningún pago.</b> '+
+   '<button type="button" class="mini" onclick="pagoIns(true)">💵 Sí pagó</button></div></div>';}
+function pagoIns(si){IP_ON=si;el('ipSi').style.display=si?'block':'none';el('ipNo').style.display=si?'none':'block';}
+// botones rápidos: solo matrícula / matrícula + primera cuota (con lo que está escrito en el formulario)
+function ipSug(){var b=el('ipSug');if(!b)return;var matr=0;
+ if(!EST.id&&FORM)FORM.campos.forEach(function(c){if(/MATR/i.test(c.titulo)){var e=el('al'+c.j);if(e)matr=num(e.value);}});
+ var reserva=el('resv')&&el('resv').checked,cu=reserva?0:num(val2('mo')),con=!reserva&&el('pl')&&/contado|completo|unico|único/i.test(el('pl').value),l=[];
+ if(matr>0)l.push(['Solo matrícula',matr]);
+ if(cu>0)l.push([(matr>0?'Matrícula + ':'')+(con?'pago total':'1ª cuota'),matr+cu]);
+ var h=l.map(function(x){return '<button type="button" class="mini" style="background:#2e7d32" onclick="ipPoner('+x[1]+')">'+esc(x[0])+' · '+gs(x[1])+'</button>';}).join('');
+ if(b.getAttribute('data-h')!==h){b.innerHTML=h;b.setAttribute('data-h',h);}}   // solo si cambió (si no, se pierde el toque)
+function ipPoner(n){el('ipMo').value=Number(n).toLocaleString('es-PY');ipRes();}
+function ipAgregar(){var k=++IPN;IPX.push(k);
+ el('ipPartes').insertAdjacentHTML('beforeend','<div class="fila" id="ipr'+k+'" style="background:#fff;border-radius:8px;padding:0 8px 8px;margin-top:8px">'+
+  '<div><label id="ipl'+k+'">Monto</label><input id="ipp'+k+'" inputmode="numeric" oninput="fmt(this);ipRes()"></div>'+
+  '<div><label id="ipq'+k+'">Medio</label><select id="ipm'+k+'" onchange="ipRes()"><option value=""></option>'+L.opciones.medio.map(function(x){return '<option>'+esc(x)+'</option>';}).join('')+'</select></div>'+
+  '<div style="flex:0 0 auto"><label>&nbsp;</label><button type="button" class="mini" style="background:#666" onclick="ipQuitar('+k+')">✖</button></div></div>');ipRes();}
+function ipQuitar(k){var r=el('ipr'+k);if(r)r.remove();IPX=IPX.filter(function(x){return x!==k;});ipRes();}
+function ipPartes(){if(!IPX.length)return null;var tot=num(val2('ipMo')),ex=IPX.map(function(k){return {monto:num(val2('ipp'+k)),medio:val2('ipm'+k)};});
+ return [{monto:tot-ex.reduce(function(s,x){return s+x.monto;},0),medio:val2('ipMe')}].concat(ex);}
+function ipRes(){var b=el('ipRes');if(!b)return;var P=ipPartes();
+ el('ipMeL').innerHTML=(P?'Medio de la parte 1 ':'Medio ')+'<span class="req">*</span>';
+ IPX.forEach(function(k,i){el('ipl'+k).innerHTML='Monto de la parte '+(i+2);el('ipq'+k).innerHTML='Medio de la parte '+(i+2);});
+ b.innerHTML=P?'<div style="background:#fff;border-radius:8px;padding:8px;margin-top:8px;font-size:14px">'+P.map(function(x,i){return '<div>'+(i?'Parte '+(i+1):'Parte 1 (lo que queda)')+': <b'+(x.monto<=0?' style="color:#c0392b"':'')+'>'+gs(x.monto)+'</b> · '+(esc(x.medio)||'<span style="color:#c0392b">falta el medio</span>')+'</div>';}).join('')+
+  '<b>Total: '+gs(num(val2('ipMo')))+'</b> <span class="ayuda">· en CAJA va una fila por cada medio</span></div>':'';}
+// valida y arma el pago (null = no pagó); {error} si falta algo
+function ipLeer(){if(!IP_ON||!el('ipSi'))return null;var mo=num(val2('ipMo')),P=ipPartes(),hy=L.hay||{};
+ if(!(mo>0))return {error:'💵 Escribí el monto que paga hoy (o tocá "Todavía no realizó ningún pago").'};
+ if(hy.medio&&!val2('ipMe'))return {error:'💵 Elegí el medio de pago.'};
+ if(P){if(P[0].monto<=0)return {error:'💵 Las otras partes suman más que el total.'};for(var i=1;i<P.length;i++){if(!(P[i].monto>0))return {error:'💵 Escribí el monto de la parte '+(i+1)+'.'};if(!P[i].medio)return {error:'💵 Elegí el medio de la parte '+(i+1)+'.'};}}
+ if(hy.tipo&&!val2('ipTi'))return {error:'💵 Elegí el concepto del pago.'};
+ if(hy.cobro&&!val2('ipCo'))return {error:'💵 Elegí quién cobró.'};
+ if(hy.proc&&!val2('ipPr'))return {error:'💵 Elegí PROCESADO EN.'};
+ return {monto:mo,txt:gs(mo)+(P?' ('+P.map(function(x){return gs(x.monto)+' '+x.medio;}).join(' + ')+')':(val2('ipMe')?' ('+val2('ipMe')+')':'')),
+  p:{monto:mo,fecha:hoyLocal(),fechaPago:'',medio:P?P[0].medio:val2('ipMe'),tipo:val2('ipTi'),cobro:val2('ipCo'),proc:val2('ipPr'),tipoComp:val2('ipTc'),comp:val2('ipCm'),
+   obs:'Pago al inscribirse',partes:P?JSON.stringify(P):'',cargIng:el('ipCi')&&el('ipCi').checked?'1':'',nonce:Date.now()+'-'+Math.random().toString(36).slice(2)}};}
+// después de inscribir: el pago a CAJA
+function pagarIns(pg,id,forzar){var a=el('app');if(!a)return;var d=el('ipR');
+ if(!d){a.insertAdjacentHTML('afterbegin','<div id="ipR" class="card" style="background:#fff8e1">💵 Guardando el pago de '+esc(pg.txt)+' en CAJA…</div>');d=el('ipR');}
+ guardado('gaussSecCobro',pg.p.cobro);guardado('gaussSecProc',pg.p.proc);
+ var q={};for(var k in pg.p)q[k]=pg.p[k];q.id=id;q.forzar=forzar?'1':'';
+ pedir('pagar',q,function(r){d.style.background='#d9ead3';
+   d.innerHTML='✅ <b>Pago de '+esc(pg.txt)+' guardado en CAJA</b> ('+(r.filas&&r.filas.length>1?'filas '+r.filas.join(' y '):'fila '+r.fila)+'). La deuda se actualiza en 1 minuto.'+
+    (r.fila?'<div style="margin-top:8px"><button class="mini" id="ipCB" onclick="ipComp('+r.fila+',\''+esc(r.clave)+'\')">🧾 Generar comprobante</button></div><div id="ipCR"></div>':'');},
+  function(e){var t=String(e.message||e);
+   if(t.indexOf('REPETIDA:')===0&&confirm(t.replace('REPETIDA: ','')+'\n\n¿Guardar el pago igual?')){pagarIns(pg,id,true);return;}
+   d.style.background='#fdecea';d.innerHTML='⚠️ <b>La inscripción quedó, pero el pago no se guardó:</b> '+esc(t)+'<br>Cargalo desde <a href="'+PANEL_COBRO+'" target="_blank">💵 Pagos</a>.';});}
+function ipComp(fila,clave){var b=el('ipCB');b.disabled=true;b.textContent='Generando… (unos segundos)';
+ pedir('comprobante',{fila:fila,clave:clave},function(r){b.style.display='none';
+  el('ipCR').innerHTML='<div style="margin-top:6px">✅ <b>'+esc(r.numero)+'</b> · <a href="'+esc(r.ver)+'" target="_blank">👁️ Ver PDF</a> · <a href="'+esc(r.bajar)+'" target="_blank">⬇️ Descargar</a>'+
+   (r.waResp?' · <a href="'+esc(r.waResp)+'" target="_blank">📲 WhatsApp responsable</a>':'')+(r.waAl?' · <a href="'+esc(r.waAl)+'" target="_blank">📲 WhatsApp alumno</a>':'')+'</div>';},
+  function(e){b.disabled=false;b.textContent='🧾 Generar comprobante';el('ipCR').innerHTML='<div class="err">⚠️ '+esc(String(e.message||e))+'</div>';});}
 
 // ---------- buscador de alumno reutilizable ----------
 var PICK=null;
