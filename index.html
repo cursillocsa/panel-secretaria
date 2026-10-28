@@ -247,8 +247,17 @@ function inicio(desdeHist){if(!desdeHist)HIST=[];NAV++;NUEVO_INS=null;sbMarca(''
   '<button class="bgrande b1" style="background:#455a64" onclick="baja()">🚪 Dar de baja<small>Cuando un alumno deja el cursillo</small></button>'+
   '<button class="bgrande b1" style="background:#37474f" onclick="cargasSemana()">📒 Cargas de la semana<small>Pagos, inscripciones, ajustes, gastos… de sábado a viernes</small></button>'+
   '</div>'+tarjetaReservas();
- if(REV&&REV.length)el('app').insertAdjacentHTML('afterbegin',tarjetaRevisar());
- if(NUEVOS&&NUEVOS.length)el('app').insertAdjacentHTML('afterbegin',tarjetaNuevos());}
+ el('app').insertAdjacentHTML('afterbegin',tarjetaAvisos());}
+// 🔔 Una sola notificación: nombres nuevos en las listas + cambios de grupo / bajas cargados desde el CSA. "Ver más" despliega todo.
+var AV_AB=false;
+function tarjetaAvisos(){var nN=NUEVOS?NUEVOS.length:0,R=REV||[],nC=R.filter(function(x){return /cambio/i.test(x.tipo);}).length,nB=R.length-nC;
+ if(!nN&&!R.length)return '';
+ var partes=[];if(nN)partes.push('🆕 '+nN+' nombre'+(nN>1?'s':'')+' nuevo'+(nN>1?'s':'')+' en las listas');if(nC)partes.push('🔄 '+nC+' cambio'+(nC>1?'s':'')+' de grupo');if(nB)partes.push('🚪 '+nB+' baja'+(nB>1?'s':''));
+ return '<div class="card" style="background:#fff8e1;margin-bottom:14px;border-left:6px solid #f1c232">'+
+  '<div style="cursor:pointer" onclick="AV_AB=!AV_AB;var d=el(\'avL\');d.style.display=AV_AB?\'block\':\'none\';el(\'avV\').textContent=AV_AB?\'▾ Ver menos\':\'▸ Ver más\';">'+
+  '<b style="font-size:17px">🔔 Para revisar</b><div style="margin-top:4px">'+partes.join(' · ')+'</div>'+
+  '<div id="avV" style="margin-top:6px;color:#1565c0;font-size:14px">'+(AV_AB?'▾ Ver menos':'▸ Ver más')+'</div></div>'+
+  '<div id="avL" style="display:'+(AV_AB?'block':'none')+'">'+(nN?tarjetaNuevos():'')+(R.length?tarjetaRevisar():'')+'</div></div>';}
 function tarjetaReservas(){var R=L?L.alumnos.filter(function(x){return String(x[3]).indexOf('📌')===0;}):[];if(!R.length)return '';
  return '<div class="card" style="margin-top:14px;background:#f3eefc"><h2 style="cursor:pointer" onclick="var l=el(\'resL\');l.style.display=l.style.display===\'none\'?\'block\':\'none\'">📌 Reservas sin grupo ('+R.length+') <span class="ayuda">tocá para ver</span></h2><div id="resL" style="display:none">'+
   R.map(function(x){return '<div style="padding:8px 0;border-top:1px solid #ddd"><b>'+esc(x[1])+'</b> <span class="ayuda">'+esc(x[0])+' · '+esc(String(x[3]).replace('📌 Reserva · ','le interesa: '))+'</span><br>'+
@@ -549,7 +558,7 @@ function pedirCSA(acc,params,ok,mal){var q='accion='+acc+'&pin='+encodeURICompon
  .then(function(d){if(d&&d.error)mal({message:d.error});else ok(d);})
  .catch(function(){mal({message:'No pude conectar con el CSA. Revisá la conexión y probá de nuevo.'});});}
 function cargarNuevos(){pedirCSA('nuevos',{},function(d){NUEVOS=d.lista||[];if(enInicio()&&L)inicio();},function(){});}
-function tarjetaNuevos(){return '<div class="card" style="background:#eef5fc;margin-bottom:14px;border-left:6px solid #6fa8dc"><h2>🆕 Nombres nuevos en las listas ('+NUEVOS.length+')</h2>'+
+function tarjetaNuevos(){return '<div style="background:#eef5fc;border-radius:8px;padding:10px;margin-top:10px"><b>🆕 Nombres nuevos en las listas ('+NUEVOS.length+')</b>'+
  '<div class="ayuda">Un profe los escribió en su lista (salen en celeste) y no están en Administración. Inscribilos o decí qué pasó.</div>'+
  NUEVOS.map(function(x,i){return '<div style="padding:10px 0;border-top:1px solid #cfe2f3"><b>'+esc(x.nombre)+'</b> <span class="ayuda">· '+esc(x.grupo)+' · desde el '+esc(x.desde)+(x.enc?' · encargado: '+esc(x.enc):'')+'</span>'+
   '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button class="mini" onclick="inscribirNuevo('+i+')">📝 Inscribir</button><button class="mini" onclick="nuevoResuelto('+i+')">✅ Ya resuelto</button></div><div id="nv'+i+'"></div></div>';}).join('')+'</div>';}
@@ -577,7 +586,7 @@ function nuevoResolver(i,modo,id){var x=NUEVOS[i],r=el('nvR'+i);if(!x)return;
    el('nv'+i).innerHTML='<div style="color:#1b8a3a;font-weight:bold;margin-top:6px">✅ '+esc(q.msg)+'</div>';
    setTimeout(function(){if(enInicio())inicio();},4000);},function(e){falla(e,'nvR'+i);});}
 function tarjetaRevisar(){if(!REV||!REV.length)return '';
- return '<div class="card" style="background:#fff2cc;margin-bottom:14px"><h2>🔔 Para revisar ('+REV.length+') <span class="ayuda">cargado desde el panel CSA</span></h2>'+
+ return '<div style="background:#fff2cc;border-radius:8px;padding:10px;margin-top:10px"><b>🔄 Cambios de grupo y bajas ('+REV.length+')</b> <span class="ayuda">cargado desde el panel CSA</span>'+
   REV.map(function(x){return '<div style="padding:8px 0;border-top:1px solid #e8d9a8">'+(/cambio/i.test(x.tipo)?'🔄 ':'🚪 ')+'<b>'+esc(x.alumno)+'</b> <span class="ayuda">'+esc(x.id)+' · '+esc(x.fecha)+' · '+esc(x.quien)+'</span><br>'+
    esc(x.detalle)+'<br><button class="mini" onclick="revisar('+x.fila+')">Revisar</button><div id="rv'+x.fila+'"></div></div>';}).join('')+'</div>';}
 function revisar(fila){var d=el('rv'+fila);d.innerHTML='<div class="ayuda">Cargando…</div>';
