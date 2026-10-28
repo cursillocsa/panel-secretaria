@@ -46,6 +46,7 @@ header h1 span.tit{color:inherit}h1 .tit{cursor:pointer;-webkit-tap-highlight-co
 <script>
 var API='https://script.google.com/macros/s/AKfycbzPNqOlPMgP1lme__szBCxU4kzz7fSJ3PxLxUZu_CcywI5ftsESe6e7hL63z1Xp7M6U/exec';
 var PANEL_COBRO='https://cursillocsa.github.io/pagos/';
+var API_CSA='https://script.google.com/macros/s/AKfycbxkJKfreWnlk8OZjS18maXcKNO4UblFEiaOwcBpe2VZYm5fs3CmlKEjwNqETak_ObJa/exec';   // CSA (nombres nuevos en las listas)
 var PIN='';try{PIN=localStorage.getItem('gaussPinSec')||'';}catch(e){}
 var L=null,FORM=null,EST={};
 // ⚡ Supabase: copia rápida de la lista y de los formularios. Si falla, se usa la planilla como siempre.
@@ -119,7 +120,7 @@ function cargar(){el('app').innerHTML='';msg('Cargando…');
   function(){pedir('lista',{},function(d){L=d;inicio();},function(e){falla(e);});});
  // formularios: primero la copia rápida, después los de la planilla (por si se agregó un grupo, un motivo, etc.)
  sbLeer('secForms','todo',function(d){ponerForms(d);formsDePlanilla();},formsDePlanilla);
- cargarRevisar();}
+ cargarRevisar();cargarNuevos();}
 el('app').addEventListener('input',function(){TOCADO=true;});
 cargar();
 
@@ -232,7 +233,7 @@ function guardarMeta(){var r=el('mtR'),mo=num(val2('mtM')),q=val2('mtQ').trim();
  pedir('cobranzaMeta',{monto:mo,cuenta:val2('mtC'),quien:q},function(){COB.meta={monto:mo,cuenta:val2('mtC'),por:q,fecha:'recién'};pintarCob();},function(e){falla(e,'mtR');});}
 
 // ---------- INICIO: botones grandes ----------
-function inicio(desdeHist){if(!desdeHist)HIST=[];NAV++;sbMarca('');if(FORMS_NUEVOS){ponerForms(FORMS_NUEVOS);FORMS_NUEVOS=null;}el('volver').style.display='none';msg('');window.scrollTo(0,0);
+function inicio(desdeHist){if(!desdeHist)HIST=[];NAV++;NUEVO_INS=null;sbMarca('');if(FORMS_NUEVOS){ponerForms(FORMS_NUEVOS);FORMS_NUEVOS=null;}el('volver').style.display='none';msg('');window.scrollTo(0,0);
  el('app').innerHTML='<div class="botones">'+
   '<a class="bgrande b2" href="'+PANEL_COBRO+'" target="_blank">💵 Estado de cuenta y cobros<small>Ver deuda, cuotas y pagos · cargar pago · comprobante · ajustes</small></a>'+
   '<button class="bgrande b1" style="background:#b71c1c" onclick="cobranza()">💰 Panel de deudas<small>Deudas de 2 meses o más · WhatsApp · promesas de pago · metas del mes</small></button>'+
@@ -246,7 +247,8 @@ function inicio(desdeHist){if(!desdeHist)HIST=[];NAV++;sbMarca('');if(FORMS_NUEV
   '<button class="bgrande b1" style="background:#455a64" onclick="baja()">🚪 Dar de baja<small>Cuando un alumno deja el cursillo</small></button>'+
   '<button class="bgrande b1" style="background:#37474f" onclick="cargasSemana()">📒 Cargas de la semana<small>Pagos, inscripciones, ajustes, gastos… de sábado a viernes</small></button>'+
   '</div>'+tarjetaReservas();
- if(REV&&REV.length)el('app').insertAdjacentHTML('afterbegin',tarjetaRevisar());}
+ if(REV&&REV.length)el('app').insertAdjacentHTML('afterbegin',tarjetaRevisar());
+ if(NUEVOS&&NUEVOS.length)el('app').insertAdjacentHTML('afterbegin',tarjetaNuevos());}
 function tarjetaReservas(){var R=L?L.alumnos.filter(function(x){return String(x[3]).indexOf('📌')===0;}):[];if(!R.length)return '';
  return '<div class="card" style="margin-top:14px;background:#f3eefc"><h2 style="cursor:pointer" onclick="var l=el(\'resL\');l.style.display=l.style.display===\'none\'?\'block\':\'none\'">📌 Reservas sin grupo ('+R.length+') <span class="ayuda">tocá para ver</span></h2><div id="resL" style="display:none">'+
   R.map(function(x){return '<div style="padding:8px 0;border-top:1px solid #ddd"><b>'+esc(x[1])+'</b> <span class="ayuda">'+esc(x[0])+' · '+esc(String(x[3]).replace('📌 Reserva · ','le interesa: '))+'</span><br>'+
@@ -263,6 +265,9 @@ function inscribir(volvio){el('volver').style.display='inline-block';EST={};wind
   '<div id="bres" class="res"></div>'+
   (volvio?'<div class="ayuda" style="margin-top:8px">Si cambió algún dato (celular, responsable…), corregilo antes con ✏️ Corregir datos del alumno.</div>':
    '<button class="btn az" onclick="formulario(null)">➕ Es un alumno nuevo</button>')+'</div><div id="form"></div>';
+ if(NUEVO_INS){el('app').insertAdjacentHTML('afterbegin','<div class="card" style="background:#eef5fc;border-left:6px solid #6fa8dc">🆕 Inscribiendo a <b>'+esc(NUEVO_INS.nombre)+'</b>, como lo escribió el profe en la lista de <b>'+esc(NUEVO_INS.grupo)+'</b>. '+
+  'Cargá su nombre completo. Al terminar, en la lista se cambia por el nombre oficial (con sus marcas).</div>');
+  el('bq').value=NUEVO_INS.nombre;buscar();}
  el('bq').focus();
  if(!FORM){msg('Cargando el formulario…');pedir('formInscripcion',{},function(d){FORM=d;msg('');},function(e){falla(e);});}}
 function buscar(){var q=sa(el('bq').value.trim()),r=el('bres');
@@ -312,6 +317,7 @@ function formulario(idExistente){
   '<div style="margin-top:18px;padding-top:10px;border-top:1px solid #ddd"><label style="margin-top:0"><input type="checkbox" id="incL" onchange="incLibros()"> 📚 Incluir libros</label><div id="libI"></div></div>'+
   '</div><button class="btn" id="bg" onclick="guardar()">💾 Inscribir</button><div id="gm"></div></div>';
  el('form').innerHTML=h;
+ if(NUEVO_INS&&el('gr')){var o0=[].slice.call(el('gr').options).filter(function(o){return o.value===NUEVO_INS.cod;})[0];if(o0){el('gr').value=NUEVO_INS.cod;cambioGrupo();}}
  var f=el('form');window.scrollTo(0,f.offsetTop-10);}
 
 function parecidos(){var c=FORM.campos.filter(function(x){return x.req;});
@@ -367,6 +373,10 @@ function guardar(forzar,cerrar){var m=el('gm'),g=grupoSel(),datos={grupo:el('gr'
    falla(e,'gm');});}
 
 function listo(r){window.scrollTo(0,0);el('volver').style.display='inline-block';
+ if(NUEVO_INS&&r&&r.id&&!r.reserva){var nx=NUEVO_INS;NUEVO_INS=null;   // 🆕 el nombre de la lista pasa a ser el del alumno inscripto
+  setTimeout(function(){pedirCSA('nuevoResolver',{clave:nx.clave,modo:'inscripto',id:r.id},function(q){NUEVOS=(NUEVOS||[]).filter(function(y){return y.clave!==nx.clave;});
+    var a=el('app');if(a)a.insertAdjacentHTML('afterbegin','<div class="card" style="background:#eef5fc">🆕 '+esc(q.msg)+'</div>');},
+   function(e){var a=el('app');if(a)a.insertAdjacentHTML('afterbegin','<div class="card" style="background:#fdecea">⚠️ No pude cambiar el nombre en la lista: '+esc(e.message||e)+'<br>Resolvelo desde el inicio → 🆕 Nombres nuevos → Ya resuelto.</div>');});},300);}
  if(r.reserva){if(L){var x0=L.alumnos.filter(function(x){return x[0]===r.id;})[0];if(x0){x0[2]='';x0[3]='📌 Reserva · '+r.interes;}else L.alumnos.push([r.id,r.nombre,'','📌 Reserva · '+r.interes,0]);}
   el('app').innerHTML='<div class="card ok"><b class="big">📌 '+esc(r.nombre)+' quedó con el lugar reservado</b><div style="margin:8px 0">Le interesa: <b>'+esc(r.interes)+'</b> · '+esc(r.id)+
    '<br>No está en ningún grupo y no genera cuotas. Cuando decida, entrá a <b>📌 Reservas sin grupo</b> (en el inicio) → Asignar grupo.</div>'+
@@ -531,6 +541,41 @@ function guardarBaja(){var a=PICK,m=el('bMsg'),c=document.querySelector('input[n
 // ---------- 🔔 PARA REVISAR (cambios de grupo y salidas que cargó el CSA) ----------
 var REV=null;
 function cargarRevisar(){pedir('revisarLista',{},function(d){REV=d.lista||[];if(enInicio()&&L)inicio();},function(){});}
+// ---------- 🆕 NOMBRES NUEVOS EN LAS LISTAS (los escribió un profe y no están en Administración) ----------
+var NUEVOS=null,NUEVO_INS=null;
+function pedirCSA(acc,params,ok,mal){var q='accion='+acc+'&pin='+encodeURIComponent(PIN);
+ for(var k in params)q+='&'+k+'='+encodeURIComponent(params[k]==null?'':params[k]);
+ fetch(API_CSA+'?'+q,{credentials:'omit'}).then(function(r){return r.json();})
+ .then(function(d){if(d&&d.error)mal({message:d.error});else ok(d);})
+ .catch(function(){mal({message:'No pude conectar con el CSA. Revisá la conexión y probá de nuevo.'});});}
+function cargarNuevos(){pedirCSA('nuevos',{},function(d){NUEVOS=d.lista||[];if(enInicio()&&L)inicio();},function(){});}
+function tarjetaNuevos(){return '<div class="card" style="background:#eef5fc;margin-bottom:14px;border-left:6px solid #6fa8dc"><h2>🆕 Nombres nuevos en las listas ('+NUEVOS.length+')</h2>'+
+ '<div class="ayuda">Un profe los escribió en su lista (salen en celeste) y no están en Administración. Inscribilos o decí qué pasó.</div>'+
+ NUEVOS.map(function(x,i){return '<div style="padding:10px 0;border-top:1px solid #cfe2f3"><b>'+esc(x.nombre)+'</b> <span class="ayuda">· '+esc(x.grupo)+' · desde el '+esc(x.desde)+(x.enc?' · encargado: '+esc(x.enc):'')+'</span>'+
+  '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button class="mini" onclick="inscribirNuevo('+i+')">📝 Inscribir</button><button class="mini" onclick="nuevoResuelto('+i+')">✅ Ya resuelto</button></div><div id="nv'+i+'"></div></div>';}).join('')+'</div>';}
+function inscribirNuevo(i){var x=NUEVOS[i];if(!x)return;inscribir(false);NUEVO_INS=x;
+ el('app').insertAdjacentHTML('afterbegin','<div class="card" style="background:#eef5fc;border-left:6px solid #6fa8dc">🆕 Inscribiendo a <b>'+esc(x.nombre)+'</b>, como lo escribió el profe en la lista de <b>'+esc(x.grupo)+'</b>. '+
+  'Si ya aparece abajo, tocá "Inscribir a este"; si no, "Es un alumno nuevo" y cargá su nombre completo. Al terminar, en la lista se cambia por el nombre oficial (con sus marcas).</div>');
+ el('bq').value=x.nombre;buscar();}
+function nuevoResuelto(i){var d=el('nv'+i);if(!d)return;
+ d.innerHTML='<div style="background:#fff;border-radius:8px;padding:10px;margin-top:8px"><b>¿Qué pasó con este alumno?</b>'+
+  '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button class="mini" onclick="nuevoEsInscripto('+i+')">🎓 Ya está inscripto</button>'+
+  '<button class="mini" style="background:#c0392b;color:#fff;border:0" onclick="nuevoQuitar('+i+')">🚪 No se quedó en el cursillo</button></div><div id="nvR'+i+'"></div></div>';}
+function nuevoEsInscripto(i){var r=el('nvR'+i);
+ r.innerHTML='<div class="ayuda" style="margin-top:8px">Buscá cuál es (como está en Administración). Su fila de la lista pasa a ese alumno, con las asistencias que ya marcó el profe.</div>'+
+  '<input id="nvQ'+i+'" placeholder="Apellido, nombre, ID o cédula…" oninput="nuevoBuscar('+i+')" autocomplete="off" style="margin-top:6px"><div id="nvL'+i+'" class="res"></div>';
+ var q=el('nvQ'+i);q.value=NUEVOS[i].nombre.split(' ')[0];nuevoBuscar(i);q.focus();}
+function nuevoBuscar(i){var q=sa(val2('nvQ'+i).trim()),r=el('nvL'+i);if(!L||q.length<2){r.innerHTML='';return;}
+ var p=q.split(/\s+/),h=L.alumnos.filter(function(x){var t=sa(x[0]+' '+x[1]);return p.every(function(w){return t.indexOf(w)>=0;})||numBusca(q,x[5]);}).slice(0,8);
+ r.innerHTML=h.length?h.map(function(x){return '<div><span>'+esc(x[1])+'<br><small>'+esc(x[0])+' · '+esc(x[2]||'sin grupo')+'</small></span><button class="mini" onclick="nuevoResolver('+i+',\'inscripto\',\''+esc(x[0])+'\')">Es este</button></div>';}).join(''):'<div class="ayuda" style="border:0">No aparece. Si no está inscripto, usá 📝 Inscribir.</div>';}
+function nuevoQuitar(i){var x=NUEVOS[i];if(!x)return;
+ if(!confirm('¿'+x.nombre+' no se quedó en el cursillo?\n\nSe borra su nombre de la lista de '+x.grupo+', con las asistencias que marcó el profe.'))return;nuevoResolver(i,'quitar');}
+function nuevoResolver(i,modo,id){var x=NUEVOS[i],r=el('nvR'+i);if(!x)return;
+ if(modo==='inscripto'){var a=L.alumnos.filter(function(y){return y[0]===id;})[0];if(!confirm('"'+x.nombre+'" (lista de '+x.grupo+') es '+(a?a[1]:id)+'?'))return;}
+ r.innerHTML='<div class="ayuda">Guardando… (unos segundos)</div>';
+ pedirCSA('nuevoResolver',{clave:x.clave,modo:modo,id:id||''},function(q){NUEVOS=NUEVOS.filter(function(y){return y.clave!==x.clave;});
+   el('nv'+i).innerHTML='<div style="color:#1b8a3a;font-weight:bold;margin-top:6px">✅ '+esc(q.msg)+'</div>';
+   setTimeout(function(){if(enInicio())inicio();},4000);},function(e){falla(e,'nvR'+i);});}
 function tarjetaRevisar(){if(!REV||!REV.length)return '';
  return '<div class="card" style="background:#fff2cc;margin-bottom:14px"><h2>🔔 Para revisar ('+REV.length+') <span class="ayuda">cargado desde el panel CSA</span></h2>'+
   REV.map(function(x){return '<div style="padding:8px 0;border-top:1px solid #e8d9a8">'+(/cambio/i.test(x.tipo)?'🔄 ':'🚪 ')+'<b>'+esc(x.alumno)+'</b> <span class="ayuda">'+esc(x.id)+' · '+esc(x.fecha)+' · '+esc(x.quien)+'</span><br>'+
