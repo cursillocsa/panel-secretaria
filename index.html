@@ -51,6 +51,11 @@ var PIN='';try{PIN=localStorage.getItem('gaussPinSec')||'';}catch(e){}
 var L=null,FORM=null,EST={};
 // ⚡ Supabase: copia rápida de la lista y de los formularios. Si falla, se usa la planilla como siempre.
 var SB_URL='https://heycvwxaewjbwbusddqg.supabase.co',SB_KEY='sb_publishable_MpClcQrbgiAtqcsaa5js3w_XCYqHztI',FORMS_NUEVOS=null;
+function sbRpc(fn,body,ok,mal,ms){var hecho=false,to=setTimeout(function(){if(!hecho){hecho=true;mal();}},ms||6000);
+ fetch(SB_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)})
+ .then(function(r){return r.json();})
+ .then(function(d){if(hecho)return;hecho=true;clearTimeout(to);ok(d);})
+ .catch(function(){if(hecho)return;hecho=true;clearTimeout(to);mal();});}
 function sbLeer(tipo,clave,ok,mal){
  if(!PIN){mal();return;}
  var hecho=false,to=setTimeout(function(){if(!hecho){hecho=true;mal();}},4000);
@@ -498,12 +503,34 @@ function pagarIns(pg,id,forzar){var a=el('app');if(!a)return;var d=el('ipR');
  if(!d){a.insertAdjacentHTML('afterbegin','<div id="ipR" class="card" style="background:#fff8e1">💵 Guardando el pago de '+esc(pg.txtCaja||pg.txt)+' en CAJA…</div>');d=el('ipR');}
  guardado('gaussSecCobro',pg.p.cobro);guardado('gaussSecProc',pg.p.proc);
  var q={};for(var k in pg.p)q[k]=pg.p[k];q.id=id;q.forzar=forzar?'1':'';
- pedir('pagar',q,function(r){d.style.background='#d9ead3';
+ var okIns=function(r){d.style.background='#d9ead3';
    d.innerHTML='✅ <b>Pago de '+esc(pg.txtCaja||pg.txt)+' guardado en CAJA</b> ('+(r.filas&&r.filas.length>1?'filas '+r.filas.join(' y '):'fila '+r.fila)+'). La deuda se actualiza en 1 minuto.'+
-    (r.fila?'<div style="margin-top:8px"><button class="mini" id="ipCB" onclick="ipComp('+r.fila+',\''+esc(r.clave)+'\')">🧾 Generar comprobante</button></div><div id="ipCR"></div>':'');},
-  function(e){var t=String(e.message||e);
+    (r.fila?'<div style="margin-top:8px"><button class="mini" id="ipCB" onclick="ipComp('+r.fila+',\''+esc(r.clave)+'\')">🧾 Generar comprobante</button></div><div id="ipCR"></div>':'');};
+ var malIns=function(t){d.style.background='#fdecea';d.innerHTML='⚠️ <b>La inscripción quedó, pero el pago no se guardó:</b> '+esc(t)+'<br>Cargalo desde <a href="'+PANEL_COBRO+'" target="_blank">💵 Pagos</a>.';};
+ var directo=function(){pedir('pagar',q,okIns,function(e){var t=String(e.message||e);
    if(t.indexOf('REPETIDA:')===0&&confirm(t.replace('REPETIDA: ','')+'\n\n¿Guardar el pago igual?')){pagarIns(pg,id,true);return;}
-   d.style.background='#fdecea';d.innerHTML='⚠️ <b>La inscripción quedó, pero el pago no se guardó:</b> '+esc(t)+'<br>Cargalo desde <a href="'+PANEL_COBRO+'" target="_blank">💵 Pagos</a>.';});}
+   malIns(t);});};
+ // 📥 bandeja: el pago queda a salvo en Supabase al instante y la planilla lo carga enseguida (si Supabase falla: directo, como antes)
+ sbRpc('gauss_cobro_enviar',{p_pin:PIN,p_id:q.nonce,p_payload:Object.assign({nombre:id},q)},function(r){
+   if(r&&r.ok){pedir('bandeja',{},function(){},function(){});esperarIns(pg,q.nonce,d,okIns);}else directo();
+ },directo);}
+function esperarIns(pg,cid,d,okIns){var t0=Date.now();
+ d.style.background='#fff8e1';
+ var sig=function(ms){setTimeout(function(){
+   if(!document.body.contains(d))return;          // cambió de pantalla: sigue en la bandeja, se ve en 💵 Pagos
+   d.innerHTML='✅ <b>Pago de '+esc(pg.txtCaja||pg.txt)+' guardado a salvo</b> · ⏳ cargándose en CAJA…'+
+    '<div class="ayuda">'+(Date.now()-t0>180000?'Está tardando más de lo normal. <b>No lo cargues de nuevo</b>: se carga solo apenas la planilla se libere.':'Unos segundos. No lo cargues de nuevo.')+'</div>';
+   sbRpc('gauss_cobros_abiertos',{p_pin:PIN,p_ids:[cid]},function(r){
+     var x=((r&&r.filas)||[]).filter(function(y){return y.id===cid;})[0];
+     if(x&&x.estado==='aplicado'){okIns({fila:x.fila,filas:x.filas||[],clave:x.clave||''});return;}
+     if(x&&x.estado==='error'){d.style.background='#fdecea';
+       d.innerHTML='⚠️ <b>La inscripción quedó, pero el pago no se pudo cargar en CAJA:</b> '+esc(String(x.error||'').replace(/^REPETIDA:\s*/,''))+
+        '<br>El pago está guardado a salvo. Resolvelo desde <a href="'+PANEL_COBRO+'" target="_blank">💵 Pagos</a> (aparece arriba en rojo, con botón para reintentar).';return;}
+     sig(2500);
+   },function(){sig(4000);});
+ },ms);};
+ sig(1500);
+}
 function ipComp(fila,clave){var b=el('ipCB');b.disabled=true;b.textContent='Generando… (unos segundos)';
  pedir('comprobante',{fila:fila,clave:clave},function(r){b.style.display='none';
   el('ipCR').innerHTML='<div style="margin-top:6px">✅ <b>'+esc(r.numero)+'</b> · <a href="'+esc(r.ver)+'" target="_blank">👁️ Ver PDF</a> · <a href="'+esc(r.bajar)+'" target="_blank">⬇️ Descargar</a>'+
