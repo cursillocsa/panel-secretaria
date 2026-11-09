@@ -7,6 +7,7 @@
 .cs-res{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}.cs-k{background:#f3f5f9;border-radius:10px;padding:10px}.cs-k span{font-size:11px;color:#666;text-transform:uppercase;display:block}.cs-k b{font-size:19px}
 .cs-sem{display:flex;gap:6px;flex-wrap:wrap}.cs-sem button{flex:1;min-width:120px;border:1px solid #bbb;background:#fff;border-radius:18px;padding:8px 10px;font-size:14px;cursor:pointer;font-family:inherit}.cs-sem button.on{background:#1f4e79;color:#fff;border-color:#1f4e79}
 .cs-al{color:#1155cc;cursor:pointer;text-decoration:underline}
+.ct-chip{display:inline-block;border:1px solid #bbb;border-radius:18px;padding:7px 12px;margin:4px 6px 0 0;font-size:14px;cursor:pointer;background:#fff;user-select:none}.ct-chip.on{background:#1f4e79;color:#fff;border-color:#1f4e79}.ct-g{display:inline-flex;align-items:center;border:1px solid #ddd;border-radius:8px;padding:6px 10px;margin:4px 6px 0 0;font-size:14px;cursor:pointer;background:#fff;user-select:none}.ct-g.on{background:#e8f0fe;border-color:#1f4e79}.ct-k{margin-top:10px}.ct-k b{font-size:13px;color:#555}
 
 :root{--rojo:#c0392b;--negro:#201e1e;--fondo:#f3f5f9;--verde:#1b8a3a;--azul:#1f4e79}
 *{box-sizing:border-box}
@@ -284,10 +285,62 @@ function inicio(desdeHist){cerrarCobros();if(!desdeHist)HIST=[];NAV++;NUEVO_INS=
   '<button class="bgrande b1" style="background:#8d6e63" onclick="libros()">📚 Venta de libros<small>Matemática 1, Matemática 2, Ejercitario CPI…</small></button>'+
   '<button class="bgrande b1" style="background:#5d4037" onclick="editar()">✏️ Corregir o actualizar datos<small>Celular, responsable, CI, colegio, facturación…</small></button>'+
   '<button class="bgrande b1" style="background:#455a64" onclick="baja()">🚪 Dar de baja<small>Cuando un alumno deja el cursillo</small></button>'+
+  '<button class="bgrande b1" style="background:#0277bd" onclick="contactos()">📇 Exportar contactos<small>CSV para Google Contactos · alumnos y responsables por grupo o modalidad</small></button>'+
   '<button class="bgrande b1" style="background:#37474f" onclick="cargasSemana()">📒 Cargas de la semana<small>Pagos, inscripciones, ajustes, gastos… de sábado a viernes</small></button>'+
   '</div>'+tarjetaReservas();
  el('app').insertAdjacentHTML('afterbegin',tarjetaAvisos());}
 // 🔔 Una sola notificación: nombres nuevos en las listas + cambios de grupo / bajas cargados desde el CSA. "Ver más" despliega todo.
+
+// ---------- 📇 EXPORTAR CONTACTOS (CSV para Google Contactos) ----------
+var CT=null,CTSEL={},CTR=null;
+function ctLlamar(a,p,ok,mal){pedir(a,p,ok,mal);}
+function contactos(){CT=null;CTSEL={};CTR=null;
+ pantalla('<div class="card"><h2>📇 Exportar contactos</h2><div id="cW">Cargando grupos…</div></div>');
+ ctLlamar('contactosOpciones',{},function(d){CT=d;ctPaso();},function(e){falla(e,'cW');});}
+function ctClave(g){return (g.curso||'Otros')+(g.mod?' '+g.mod:'');}
+function ctPaso(){
+ var mods={},cursos={};CT.grupos.forEach(function(g){if(g.mod)mods[g.mod]=1;if(g.curso)cursos[g.curso]=1;});
+ el('cW').innerHTML='<div class="ayuda">Se descarga un archivo CSV para importar en Google Contactos (contacts.google.com → Importar). Alumno: APELLIDO NOMBRE GRUPO · Responsable: TUTORGRUPO APELLIDO NOMBRE (uno por hijo).</div>'+
+  '<label>¿De quién?</label><select id="cQ"><option value="ambos">Alumnos y responsables</option><option value="alumnos">Solo alumnos</option><option value="responsables">Solo responsables (tutores)</option></select>'+
+  '<label>¿De qué grupos?</label><div class="ayuda">Por modalidad o curso (tilda o destilda todos sus grupos):</div><div id="cM"></div>'+
+  '<div id="cG"></div>'+
+  '<label style="font-weight:normal;margin-top:12px"><input type="checkbox" id="cA" checked>Solo los que están cursando (sin los que ya salieron)</label>'+
+  '<button class="btn" id="cB" onclick="ctGenerar()">📇 Descargar CSV</button><div id="cR"></div>';
+ ctPintar();}
+function ctSeleccion(f){var gs=CT.grupos.filter(f);return gs;}
+function ctTodosOn(gs){return gs.length>0&&gs.every(function(g){return CTSEL[g.cod];});}
+function ctPintar(){
+ var mods={},cursos={};CT.grupos.forEach(function(g){if(g.mod)mods[g.mod]=1;if(g.curso)cursos[g.curso]=1;});
+ var ch='<span class="ct-chip'+(ctTodosOn(CT.grupos)?' on':'')+'" onclick="ctGrupoSet(\'*\',\'\')">Todos los grupos</span>';
+ Object.keys(mods).sort().forEach(function(m){ch+='<span class="ct-chip'+(ctTodosOn(ctSeleccion(function(g){return g.mod===m;}))?' on':'')+'" data-v="'+esc(m)+'" onclick="ctGrupoSet(\'m\',this.getAttribute(\'data-v\'))">'+esc(m)+'</span>';});
+ Object.keys(cursos).sort().forEach(function(m){ch+='<span class="ct-chip'+(ctTodosOn(ctSeleccion(function(g){return g.curso===m;}))?' on':'')+'" data-v="'+esc(m)+'" onclick="ctGrupoSet(\'c\',this.getAttribute(\'data-v\'))">Todos '+esc(m)+'</span>';});
+ ch+='<span class="ct-chip" onclick="ctGrupoSet(\'0\',\'\')">✕ Ninguno</span>';
+ el('cM').innerHTML=ch;
+ var por={};CT.grupos.forEach(function(g){(por[ctClave(g)]=por[ctClave(g)]||[]).push(g);});
+ el('cG').innerHTML=Object.keys(por).sort().map(function(k){return '<div class="ct-k"><b>'+esc(k)+'</b><br>'+por[k].map(function(g){
+  return '<span class="ct-g'+(CTSEL[g.cod]?' on':'')+'" data-c="'+esc(g.cod)+'" onclick="ctTog(this.getAttribute(\'data-c\'))">'+(CTSEL[g.cod]?'☑️ ':'⬜ ')+esc(g.nombre)+' <span class="ayuda">&nbsp;('+g.n+')</span></span>';}).join('')+'</div>';}).join('');
+ var n=Object.keys(CTSEL).length;el('cB').textContent='📇 Descargar CSV'+(n?' ('+n+' grupo'+(n>1?'s':'')+')':'');}
+function ctTog(c){if(CTSEL[c])delete CTSEL[c];else CTSEL[c]=1;ctPintar();}
+function ctGrupoSet(tipo,v){
+ if(tipo==='0'){CTSEL={};ctPintar();return;}
+ var gs=CT.grupos.filter(function(g){return tipo==='*'||(tipo==='m'&&g.mod===v)||(tipo==='c'&&g.curso===v);});
+ var on=ctTodosOn(gs);gs.forEach(function(g){if(on)delete CTSEL[g.cod];else CTSEL[g.cod]=1;});ctPintar();}
+function ctBlob(r){return new Blob(['﻿'+r.csv],{type:'text/csv;charset=utf-8'});}
+function ctBajar(){if(!CTR)return;var url=URL.createObjectURL(ctBlob(CTR)),a=document.createElement('a');a.href=url;a.download=CTR.archivo;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},4000);}
+function ctCompartir(){if(!CTR)return;var f=null;try{f=new File([ctBlob(CTR)],CTR.archivo,{type:'text/csv'});}catch(e){}
+ if(f&&navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:CTR.archivo}).catch(function(){});}else ctBajar();}
+function ctGenerar(){var cods=Object.keys(CTSEL),b=el('cB'),r=el('cR');
+ if(!cods.length){r.innerHTML='<div class="err">Elegí al menos un grupo.</div>';return;}
+ b.disabled=true;b.textContent='Armando… (unos segundos)';r.innerHTML='';
+ ctLlamar('contactosCsv',{quien:el('cQ').value,grupos:cods.join(','),activos:el('cA').checked?'1':'0'},function(x){
+  b.disabled=false;ctPintar();CTR=x;
+  var h='<div class="ok" style="margin-top:12px"><b class="big">✅ '+x.n+' contactos</b>'+x.alumnos+' de alumnos · '+x.responsables+' de responsables'+
+   '<button class="btn az" style="margin-top:10px" onclick="ctBajar()">⬇️ Descargar de nuevo</button><button class="btn" style="background:#25d366" onclick="ctCompartir()">📲 Compartir archivo</button></div>';
+  if(x.totalSinTel)h+='<div class="aviso">⚠️ '+x.totalSinTel+' sin teléfono (no se incluyen): '+x.sinTel.map(esc).join(' · ')+(x.totalSinTel>x.sinTel.length?' …':'')+'</div>';
+  h+='<div class="aviso">Para importar: entrá a <b>contacts.google.com</b> → <b>Importar</b> → elegí el archivo. Cada contacto queda con una etiqueta (el grupo, o "TUTORES grupo"): si te equivocás, borrás los contactos de esa etiqueta. No lo importes dos veces.</div>';
+  r.innerHTML=h;ctBajar();},
+  function(e){b.disabled=false;ctPintar();falla(e,'cR');});}
+
 var AV_AB=false;
 function tarjetaAvisos(){var nN=NUEVOS?NUEVOS.length:0,R=REV||[],nC=R.filter(function(x){return /cambio/i.test(x.tipo);}).length,nB=R.length-nC;
  if(!nN&&!R.length)return '';
