@@ -39,11 +39,15 @@ input[type=checkbox]{width:auto;transform:scale(1.4);margin-right:8px}
 .ok{background:#d9ead3;border-radius:12px;padding:16px}
 .ok b.big{font-size:20px;display:block;margin-bottom:6px}
 #msg{color:#666;text-align:center;margin-top:30px}
+#colaIns{position:sticky;top:0;z-index:6;padding:0 12px}#colaIns .ci{border-radius:10px;padding:10px 12px;margin-top:8px;box-shadow:0 2px 8px rgba(0,0,0,.25);font-size:14px}
+#colaIns .ciy{background:#fff2cc;border:2px solid #f1c232}#colaIns .cir{background:#fdecea;border:2px solid #c0392b}#colaIns .cig{background:#d9ead3;border:2px solid #6aa84f}
+#colaIns .cb{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 #cobros{display:none;position:fixed;left:0;right:0;bottom:0;top:0;background:#f4f4f4;z-index:4}#cobros iframe{width:100%;height:100%;border:0;display:block}
 .paso{display:inline-block;background:var(--azul);color:#fff;border-radius:50%;width:26px;height:26px;text-align:center;line-height:26px;margin-right:6px;font-size:14px}
 header h1 span.tit{color:inherit}h1 .tit{cursor:pointer;-webkit-tap-highlight-color:transparent}h1 .tit:active{opacity:.6}
 </style></head><body>
 <header><h1><span class="tit" onclick="if(L)inicio()" title="Ir al inicio">🏫 Panel de secretaría <span>Gauss</span></span></h1><button id="volver" onclick="inicio()">⬅ Inicio</button></header>
+<div id="colaIns"><div id="ciQ"></div><div id="ciO"></div></div>
 <main><div id="app"></div><div id="msg">Cargando…</div></main>
 <div id="cobros"></div>
 <script>
@@ -503,8 +507,10 @@ function guardar(forzar,cerrar){var m=el('gm'),g=grupoSel(),datos={grupo:el('gr'
   var a0=EST.id?L.alumnos.filter(function(x){return x[0]===EST.id;})[0]:null;
   if(!confirm('¿Guardar la reserva de '+(a0?a0[1]:nombre)+'?\n\nLe interesa: '+res.interes+'\nNo se inscribe en ningún grupo ni genera cuotas.'+(PG?'\n\n💵 Paga hoy: '+PG.txt:'\n\n⏳ Todavía no paga nada.')))return;
   var b0=el('bg');b0.disabled=true;b0.textContent='Guardando…';
-  pedir('inscribir',{datos:JSON.stringify(res),forzar:forzar?'1':'',nonce:Date.now()+'-'+Math.random().toString(36).slice(2)},listo,
+  var prm0={datos:JSON.stringify(res),forzar:forzar?'1':'',nonce:Date.now()+'-'+Math.random().toString(36).slice(2)};
+  pedir('inscribir',prm0,listo,
    function(e){b0.disabled=false;ipBoton();var t=String(e.message||e);
+    if(colaInsOcupada(t)){colaInsEncolar(prm0,a0?a0[1]:nombre,'📌 Reserva',PG,null);return;}
     if(t.indexOf('REPETIDO:')===0){if(confirm(t.replace('REPETIDO: ','')+'\n\n¿Es otra persona con el mismo nombre? (Aceptar = cargar igual)'))guardar(true);return;}falla(e,'gm');});
   return;}
  if(!g){m.innerHTML='<div class="err">Elegí el grupo.</div>';return;}
@@ -515,8 +521,10 @@ function guardar(forzar,cerrar){var m=el('gm'),g=grupoSel(),datos={grupo:el('gr'
   if(!confirm('¿Inscribir a '+(a?a[1]:nombre)+'?\n\nGrupo: '+g.nombre+'\nEmpieza: '+fecha(datos.inicio)+'\n'+datos.plan+': '+gs(datos.monto)+(datos.beca?'\nBeca: '+datos.beca:'')+(datos.nCuotas?'\n📝 Plan personalizado: '+datos.nCuotas+' cuotas'+(datos.ultima?' (última '+gs(datos.ultima)+')':''):'')+
    (PG?'\n\n💵 Cobra hoy: '+PG.txt:'\n\n⏳ Todavía no paga nada.')))return;}
  var b=el('bg');b.disabled=true;b.textContent='Guardando…';m.innerHTML='';
- pedir('inscribir',{datos:JSON.stringify(datos),forzar:forzar?'1':'',cerrar:cerrar?'1':'',nonce:Date.now()+'-'+Math.random().toString(36).slice(2)},listo,
+ var prm1={datos:JSON.stringify(datos),forzar:forzar?'1':'',cerrar:cerrar?'1':'',nonce:Date.now()+'-'+Math.random().toString(36).slice(2)};
+ pedir('inscribir',prm1,listo,
   function(e){b.disabled=false;ipBoton();var t=String(e.message||e);
+   if(colaInsOcupada(t)){colaInsEncolar(prm1,(a?a[1]:nombre),g.nombre,PG,EST.venta);return;}
    if(t.indexOf('REPETIDO:')===0){if(confirm(t.replace('REPETIDO: ','')+'\n\n¿Es otra persona con el mismo nombre? (Aceptar = cargar igual)'))guardar(true);return;}
    if(t.indexOf('ABIERTA:')===0){if(confirm(t.replace('ABIERTA: ','')+'\n\n¿Dejó de venir y ahora vuelve? Aceptar = esa inscripción se cierra el día antes de la nueva y queda inscripto en '+g.nombre+'.\n\n(Si sigue viniendo y solo cambia de grupo, cancelá y usá 🔄 Cambiar de grupo.)'))guardar(forzar,true);return;}
    falla(e,'gm');});}
@@ -544,6 +552,63 @@ function listo(r){window.scrollTo(0,0);el('volver').style.display='inline-block'
   '<div class="ayuda" style="margin-top:10px">Las deudas y listas se actualizan solas en 1 minuto.</div></div>';
  if(venta){var q=venta.params;q.id=r.id;pedir('venderLibros',q,function(x){el('libR').className='ok';el('libR').innerHTML='📚 <b>Libros guardados en CAJA:</b> '+esc(x.detalle)+' = <b>'+gs(x.total)+'</b>';},
   function(e){el('libR').innerHTML='<span class="err">⚠️ La inscripción quedó, pero los libros no se guardaron: '+esc(String(e.message||e))+'. Cargalos con 📚 Venta de libros.</span>';});}}
+
+
+// ---------- ⏳ COLA DE INSCRIPCIONES: si la planilla está ocupada, la inscripción queda guardada en este navegador y se reintenta sola ----------
+var CI_KEY='gaussInsCola',CI_T=null,CI_RUN=false;
+function ciLeer(){try{return JSON.parse(localStorage.getItem(CI_KEY)||'[]');}catch(e){return [];}}
+function ciGuardar(l){try{localStorage.setItem(CI_KEY,JSON.stringify(l));}catch(e){}}
+function colaInsOcupada(t){return /^Hay otra actualización/.test(t)||/^No pude conectar/.test(t);}
+function colaInsEncolar(params,nombre,grupo,pago,venta){
+ var l=ciLeer();
+ l.push({id:params.nonce,nombre:nombre,grupo:grupo,params:params,pago:pago&&pago.p?{p:pago.p,txt:pago.txt,txtCaja:pago.txtCaja}:null,
+  venta:venta&&venta.params?venta.params:null,nuevo:NUEVO_INS?{clave:NUEVO_INS.clave}:null,est:'espera',n:0,t:Date.now(),msg:''});
+ ciGuardar(l);EST.pago=null;EST.venta=null;NUEVO_INS=null;
+ window.scrollTo(0,0);el('volver').style.display='inline-block';
+ el('app').innerHTML='<div class="card" style="background:#fff2cc"><b class="big">⏳ '+esc(nombre)+': la inscripción quedó guardada</b>'+
+  'La planilla estaba ocupada con otra actualización. <b>No la cargues de nuevo</b>: se inscribe sola apenas se libere y te aviso arriba.'+
+  '<div class="ayuda" style="margin-top:6px">Aunque cierres el panel, queda guardada en este navegador y sigue intentando cuando lo abras.</div>'+
+  '<button class="btn az" onclick="inscribir()">📝 Inscribir a otro alumno</button><button class="btn gr" onclick="inicio()">⬅ Volver al inicio</button></div>';
+ colaInsPintar();colaInsSig(6000);}
+function colaInsSig(ms){clearTimeout(CI_T);if(!ciLeer().some(function(j){return j.est==='espera';}))return;CI_T=setTimeout(colaInsCorrer,ms||8000);}
+function colaInsCorrer(){clearTimeout(CI_T);if(CI_RUN)return;
+ var j=ciLeer().filter(function(x){return x.est==='espera';})[0];if(!j)return;
+ CI_RUN=true;
+ pedir('inscribir',j.params,function(r){CI_RUN=false;colaInsListo(j,r);},function(e){CI_RUN=false;
+  var t=String(e.message||e),l2=ciLeer(),k=l2.filter(function(x){return x.id===j.id;})[0];if(!k){colaInsSig(3000);return;}
+  if(colaInsOcupada(t)||t.indexOf('PIN:')>=0){k.n=(k.n||0)+1;ciGuardar(l2);colaInsPintar();colaInsSig(Math.min(8000+k.n*2000,20000));return;}
+  k.est='error';k.msg=t;ciGuardar(l2);colaInsPintar();colaInsSig(2000);});}
+function colaInsListo(j,r){
+ ciGuardar(ciLeer().filter(function(x){return x.id!==j.id;}));colaInsPintar();
+ var nom=r.nombre||j.nombre;
+ if(L&&r.nuevo&&r.id)L.alumnos.push([r.id,nom,r.grupo||'',r.reserva?'📌 Reserva':'Inscripto',0]);
+ var c=document.createElement('div');c.className='ci cig';c.id='ciO'+j.id;
+ c.innerHTML='<b>✅ '+esc(nom)+' quedó '+(r.reserva?'con el lugar reservado':'inscripto')+'</b>'+(r.grupo?' · '+esc(r.grupo):'')+(r.id?' <span class="ayuda">'+esc(r.id)+(r.numInsc?' · '+esc(r.numInsc):'')+'</span>':'')+
+  '<div class="cb">'+(r.wa?'<a class="mini" style="text-decoration:none;background:#25d366;color:#fff;border:0" href="'+esc(r.wa)+'" target="_blank">📲 Link del grupo por WhatsApp</a>':'')+
+  (r.id?'<a class="mini" style="text-decoration:none" href="#" onclick="abrirCobros(\''+esc(r.id)+'\');return false">💵 Cobrar</a>':'')+
+  '<button class="mini" onclick="var n=this.parentNode.parentNode;n.parentNode.removeChild(n)">✖ Cerrar</button></div>';
+ el('ciO').appendChild(c);
+ if(j.pago&&r.id){var d=document.createElement('div');d.className='ayuda';d.style.marginTop='6px';c.appendChild(d);pagarIns(j.pago,r.id,false,d);}
+ if(j.venta&&r.id){var q=j.venta;q.id=r.id;var lb=document.createElement('div');lb.className='ayuda';lb.style.marginTop='6px';lb.textContent='📚 Guardando la venta de libros…';c.appendChild(lb);
+  pedir('venderLibros',q,function(x){lb.innerHTML='📚 <b>Libros guardados en CAJA:</b> '+esc(x.detalle)+' = <b>'+gs(x.total)+'</b>';},
+   function(e){lb.innerHTML='<span class="err">⚠️ Los libros no se guardaron: '+esc(String(e.message||e))+'. Cargalos con 📚 Venta de libros.</span>';});}
+ if(j.nuevo&&r.id&&!r.reserva){pedirCSA('nuevoResolver',{clave:j.nuevo.clave,modo:'inscripto',id:r.id},function(){NUEVOS=(NUEVOS||[]).filter(function(y){return y.clave!==j.nuevo.clave;});},function(){});}
+ colaInsSig(1500);}
+function colaInsAccion(id,que){var l=ciLeer(),k=l.filter(function(x){return x.id===id;})[0];if(!k)return;
+ if(que==='descartar'){if(!confirm('¿Descartar esta inscripción? NO se va a cargar en la planilla.'))return;ciGuardar(l.filter(function(x){return x.id!==id;}));}
+ else{if(que==='forzar')k.params.forzar='1';if(que==='cerrar')k.params.cerrar='1';k.est='espera';k.msg='';ciGuardar(l);}
+ colaInsPintar();if(que!=='descartar')colaInsCorrer();else colaInsSig(2000);}
+function colaInsPintar(){var b=el('ciQ');if(!b)return;var h='';
+ ciLeer().forEach(function(j){var n=esc(j.nombre),id=esc(j.id);
+  if(j.est==='error'){var m=String(j.msg||''),rep=m.indexOf('REPETIDO:')===0,ab=m.indexOf('ABIERTA:')===0;
+   h+='<div class="ci cir">🛑 <b>No se pudo inscribir a '+n+'</b> <span class="ayuda">('+esc(j.grupo||'')+')</span><div class="err" style="margin-top:4px">'+esc(m.replace(/^(REPETIDO|ABIERTA):\s*/,''))+'</div><div class="ayuda">Está guardada: no se perdió.</div><div class="cb">'+
+    (rep?'<button class="mini" onclick="colaInsAccion(\''+id+'\',\'forzar\')">Es otra persona: cargar igual</button>':'')+
+    (ab?'<button class="mini" onclick="colaInsAccion(\''+id+'\',\'cerrar\')">Cerrar la inscripción anterior y cargar</button>':'')+
+    '<button class="mini" onclick="colaInsAccion(\''+id+'\',\'reintentar\')">🔁 Reintentar</button><button class="mini" onclick="colaInsAccion(\''+id+'\',\'descartar\')">🗑️ Descartar</button></div></div>';}
+  else h+='<div class="ci ciy">⏳ <b>Inscribiendo a '+n+'…</b> <span class="ayuda">('+esc(j.grupo||'')+')</span><div class="ayuda">Guardada a salvo: la planilla estaba ocupada. Se reintenta sola'+(j.n?' (intento '+(j.n+1)+')':'')+'. <b>No la cargues de nuevo.</b></div>'+
+   '<div class="cb"><button class="mini" onclick="colaInsAccion(\''+id+'\',\'reintentar\')">🔁 Reintentar ahora</button><button class="mini" onclick="colaInsAccion(\''+id+'\',\'descartar\')">🗑️ Descartar</button></div></div>';});
+ b.innerHTML=h;}
+setTimeout(function(){colaInsPintar();colaInsCorrer();},3000);
 
 // ---------- 💵 ¿QUÉ PAGA HOY? (matrícula, libros y cuota en un solo cobro; en CAJA quedan filas separadas) ----------
 // Orden: primero la matrícula, después los libros y lo que sobra va a la cuota. Los libros se pagan sí o sí.
@@ -632,7 +697,7 @@ function ipLeer(VL){var hy=L.hay||{};
   (D.matr||lib?'\n   → '+[D.matr?'matrícula '+gs(Math.min(mo,D.matr)):'',lib?'libros '+gs(lib)+' ('+VL.detalle+')':'',resto-Math.min(mo,D.matr)>0?'cuota '+gs(resto-Math.min(mo,D.matr)):''].filter(function(x){return x;}).join(' · '):'');
  return {monto:mo,txt:txt,p:p,venta:venta,txtCaja:p?gs(resto)+(partes.length>1?' ('+partes.map(function(x){return gs(x.monto)+' '+x.medio;}).join(' + ')+')':' ('+partes[0].medio+')'):''};}
 // después de inscribir: el pago a CAJA
-function pagarIns(pg,id,forzar){var a=el('app');if(!a)return;var d=el('ipR');
+function pagarIns(pg,id,forzar,dest){var a=el('app');if(!a&&!dest)return;var d=dest||el('ipR');
  if(!d){a.insertAdjacentHTML('afterbegin','<div id="ipR" class="card" style="background:#fff8e1">💵 Guardando el pago de '+esc(pg.txtCaja||pg.txt)+' en CAJA…</div>');d=el('ipR');}
  guardado('gaussSecCobro',pg.p.cobro);guardado('gaussSecProc',pg.p.proc);
  var q={};for(var k in pg.p)q[k]=pg.p[k];q.id=id;q.forzar=forzar?'1':'';
@@ -641,7 +706,7 @@ function pagarIns(pg,id,forzar){var a=el('app');if(!a)return;var d=el('ipR');
     (r.fila?'<div style="margin-top:8px"><button class="mini" id="ipCB" onclick="ipComp('+r.fila+',\''+esc(r.clave)+'\')">🧾 Generar comprobante</button></div><div id="ipCR"></div>':'');};
  var malIns=function(t){d.style.background='#fdecea';d.innerHTML='⚠️ <b>La inscripción quedó, pero el pago no se guardó:</b> '+esc(t)+'<br>Cargalo desde <a href="#" onclick="abrirCobros(\''+esc(id)+'\');return false">💵 Pagos</a>.';};
  var directo=function(){pedir('pagar',q,okIns,function(e){var t=String(e.message||e);
-   if(t.indexOf('REPETIDA:')===0&&confirm(t.replace('REPETIDA: ','')+'\n\n¿Guardar el pago igual?')){pagarIns(pg,id,true);return;}
+   if(t.indexOf('REPETIDA:')===0&&confirm(t.replace('REPETIDA: ','')+'\n\n¿Guardar el pago igual?')){pagarIns(pg,id,true,dest);return;}
    malIns(t);});};
  // 📥 bandeja: el pago queda a salvo en Supabase al instante y la planilla lo carga enseguida (si Supabase falla: directo, como antes)
  sbRpc('gauss_cobro_enviar',{p_pin:PIN,p_id:q.nonce,p_payload:Object.assign({nombre:id},q)},function(r){
