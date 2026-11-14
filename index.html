@@ -117,9 +117,13 @@ function msg(t){el('msg').innerHTML=t||'';}
 function pedir(acc,params,ok,mal){
  var q='accion='+acc+'&pin='+encodeURIComponent(PIN);
  for(var k in params)q+='&'+k+'='+encodeURIComponent(params[k]==null?'':params[k]);
- fetch(API+'?'+q,{credentials:'omit'}).then(function(r){return r.json();})
- .then(function(d){if(d&&d.error)mal({message:d.error});else ok(d);})
- .catch(function(){mal({message:'No pude conectar con Administración. Revisá la conexión y probá de nuevo.'});});}
+ var intento=0,ir=function(){fetch(API+'?'+q,{credentials:'omit'}).then(function(r){return r.json();})
+ .then(function(d){if(d&&d.error){
+   // la planilla está ocupada (otro recálculo o carga): se reintenta sola, no hace falta tocar nada
+   if(/ocupada|otra actualizaci/i.test(String(d.error))&&intento<8){intento++;msg('<span class="ayuda">⏳ La planilla está ocupada. Reintento solo… ('+intento+'/8)</span>');setTimeout(ir,4000);return;}
+   if(intento)msg('');mal({message:d.error});}
+  else{if(intento)msg('');ok(d);}})
+ .catch(function(){mal({message:'No pude conectar con Administración. Revisá la conexión y probá de nuevo.'});});};ir();}
 function falla(e,dest){var m=String(e.message||e);
  if(m.indexOf('PIN:')>=0){pedirPin(m.replace(/^.*PIN:\s*/,''));return true;}
  if(dest)el(dest).innerHTML='<div class="err">⚠️ '+esc(m)+'</div>';else msg('<span class="err">⚠️ '+esc(m)+'</span>');return false;}
