@@ -784,29 +784,66 @@ function hoyIso(){var d=new Date();return new Date(d.getTime()-d.getTimezoneOffs
 function hecho(t,otra,fn){pantalla('<div class="card ok"><b class="big">✅ '+t+'</b>'+
  '<button class="btn az" onclick="'+fn+'()">'+otra+'</button><button class="btn gr" onclick="inicio()">⬅ Volver al inicio</button></div>');}
 
-// ---------- 🔄 CAMBIAR DE GRUPO ----------
+// ---------- 🔄 CAMBIAR DE GRUPO (tanda 4w): un solo flujo; el mismo se usa desde ✏️ Corregir ----------
+var CG={};
 function cambiarGrupo(){PICK=null;
- var seguir=function(){
-  pantalla(buscadorHtml('¿Qué alumno cambia de grupo?')+'<div id="cg"></div>');
-  PICK_CB=function(a){var mods={};FORM.grupos.forEach(function(g){(mods[g.mod||'Otros']=mods[g.mod||'Otros']||[]).push(g);});
-   el('cg').innerHTML='<div class="card"><h2><span class="paso">2</span>Grupo nuevo</h2>'+
-    '<label>Pasa a <span class="req">*</span></label><select id="cgG"><option value=""></option>'+
-    Object.keys(mods).map(function(m){return '<optgroup label="'+esc(m)+'">'+mods[m].map(function(g){return '<option value="'+esc(g.cod)+'">'+esc(g.nombre)+'</option>';}).join('')+'</optgroup>';}).join('')+'</select>'+
-    '<div class="fila"><div><label>Desde el día <span class="req">*</span></label><input type="date" id="cgF" value="'+hoyIso()+'"></div>'+
-    '<div><label>Cuota nueva (Gs.) <span class="ayuda">(vacío = la misma de antes)</span></label><input id="cgC" inputmode="numeric" oninput="fmt(this)"></div></div>'+
-    '<div class="ayuda" style="margin-top:8px">La inscripción de antes se cierra ese día y se crea la nueva en el grupo elegido.</div>'+
-    '<button class="btn" id="cgB" onclick="guardarCambio()">🔄 Cambiar de grupo</button><div id="cgM"></div></div>';};
-  el('pq').focus();};
- if(FORM)seguir();else{msg('Cargando…');pedir('formInscripcion',{},function(d){FORM=d;seguir();},function(e){falla(e);});}}
-function guardarCambio(){var a=PICK,g=el('cgG').value,m=el('cgM');
- if(!g){m.innerHTML='<div class="err">Elegí el grupo nuevo.</div>';return;}
+ pantalla(buscadorHtml('¿Qué alumno cambia de grupo?')+'<div id="cg"></div>');
+ PICK_CB=function(a){cgAbrir(a,'cg');};
+ el('pq').focus();}
+function cgAbrir(a,dest){PICK=a;CG={a:a,dest:dest};el(dest).innerHTML='<div class="card">Cargando su inscripción…</div>';
+ pedir('inscEditarForm',{id:a[0]},function(r){
+  var x=r.inscs.filter(function(i){return i.activa&&i.empezo;})[0]||r.inscs.filter(function(i){return i.activa;})[0];
+  if(!x){el(dest).innerHTML='<div class="card"><div class="err">'+esc(a[1])+' no tiene una inscripción abierta para cambiar de grupo.</div></div>';return;}
+  CG.r=r;CG.x=x;
+  var v=x.vals,ct=/contado|completo|unico/i.test(v.plan||'');
+  CG.res=(v.plan||'sin plan')+(ct?(v.total?' · '+gs(v.total):''):(v.cuota?' · '+gs(v.cuotaNueva||v.cuota)+' por cuota':''))+
+   (v.nCuotas?' · '+(/normal/i.test(v.nCuotas)?'plan normal del grupo':v.nCuotas+' cuotas'):'')+(v.venc1?' · 1er venc. '+fecha(v.venc1):'')+(v.ultima?' · última '+gs(v.ultima):'');
+  el(dest).innerHTML='<div class="card"><h2>🔄 Cambiar de grupo</h2>'+
+   '<div class="ayuda"><b>'+esc(a[1])+'</b> figura en <b>'+esc(x.grupoNombre)+'</b>, desde '+esc(x.inicioTxt||'—')+'. '+
+   (x.empezo?'La inscripción de antes se cierra el día del cambio y se crea una nueva en el grupo elegido.':'Todavía no empezó: se corrige la misma inscripción y no se le cobra el grupo viejo.')+'</div>'+
+   '<label>Grupo nuevo <span class="req">*</span></label><select id="cgG" onchange="cgGrupo()"><option value=""></option>'+
+   r.grupos.filter(function(g){return g.cod!==x.grupo;}).map(function(g){return '<option value="'+esc(g.cod)+'">'+esc(g.nombre)+'</option>';}).join('')+'</select>'+
+   '<div id="cgR"></div><div id="cgMsg"></div></div>';
+ },function(e){falla(e,dest);});}
+function cgModoVal(){var q=document.querySelector('input[name="cgModo"]:checked');return q?q.value:'';}
+function cgGrupo(){var r=CG.r,x=CG.x,g=r.grupos.filter(function(q){return q.cod===el('cgG').value;})[0];
+ if(!g){el('cgR').innerHTML='';return;}CG.g=g;
+ el('cgR').innerHTML=
+  '<label>'+(x.empezo?'Desde el día':'Inicio en el grupo nuevo')+' <span class="req">*</span></label><input type="date" id="cgF" value="'+esc(x.empezo?r.hoy:(g.inicio||r.hoy))+'">'+
+  (x.empezo?'<label style="margin-top:10px;display:block"><input type="checkbox" id="cgNV"> No vino a ninguna clase (no se le cobra el grupo viejo)</label>':'')+
+  '<div style="margin-top:14px;font-weight:bold">Plan de pagos <span class="req">*</span> <span class="ayuda">(elegí una opción)</span></div>'+
+  '<label style="display:block;margin-top:6px"><input type="radio" name="cgModo" value="mantener" onchange="cgModo()"> Mantener el mismo plan de pagos<br><span class="ayuda">Hoy: '+esc(CG.res)+'</span></label>'+
+  '<label style="display:block;margin-top:6px"><input type="radio" name="cgModo" value="cambiar" onchange="cgModo()"> Cambiar el plan de pagos</label>'+
+  '<div id="cgPl"></div><button class="btn az" onclick="cgVer()">👀 Ver cómo queda su deuda</button>';
+ el('cgMsg').innerHTML='';}
+function cgModo(){var r=CG.r;el('cgMsg').innerHTML='';
+ if(cgModoVal()!=='cambiar'){el('cgPl').innerHTML='';return;}
+ var pl=(r.planes.filter(function(o){return /cuota/i.test(o);})[0])||r.planes[0]||'Cuotas';
+ el('cgPl').innerHTML='<div class="card" style="background:#f6f1fa;margin-top:8px"><label>Plan</label><select id="cgP" onchange="cgPlan()">'+
+  (r.planes.length?r.planes:['Cuotas','Contado']).map(function(o){return '<option'+(o===pl?' selected':'')+'>'+esc(o)+'</option>';}).join('')+'</select><div id="cgCuo"></div></div>';
+ cgPlan();}
+function cgPlan(){var g=CG.g,ct=/contado|completo|unico/i.test(el('cgP').value),h='',m=ct?g.contado:g.cuota;
+ h+='<label>'+(ct?'Monto total (Gs.)':'Cuota mensual (Gs.)')+' <span class="req">*</span></label><input id="cgC" inputmode="numeric" oninput="fmt(this)" value="'+(m?Number(m).toLocaleString('es-PY'):'')+'">';
+ if(!ct){
+  if(g.conPlan)h+='<label style="margin-top:8px;display:block"><input type="checkbox" id="cgN" checked onchange="cgNormal()"> Plan normal del grupo'+(g.nCuotas?' ('+g.nCuotas+' cuotas)':'')+'</label>';
+  h+='<div id="cgPers"><div class="fila"><div><label>N° de cuotas'+(g.conPlan?' <span class="req">*</span>':' <span class="ayuda">(opcional)</span>')+'</label><input id="cgNC" inputmode="numeric" value="'+(g.nCuotas||'')+'"></div>'+
+   '<div><label>1er vencimiento</label><input type="date" id="cgV1" value="'+esc(g.venc1||'')+'"></div></div>'+
+   '<label>Última cuota (Gs.) <span class="ayuda">(vacío = completa. Ej.: 400.000)</span></label><input id="cgU" inputmode="numeric" oninput="fmt(this)"></div>';}
+ el('cgCuo').innerHTML=h;if(!ct)cgNormal();}
+function cgNormal(){var n=el('cgN'),p=el('cgPers');if(p)p.style.display=(n&&n.checked)?'none':'block';}
+function cgVer(){var g=CG.g,m=el('cgMsg'),modo=cgModoVal();
  if(!el('cgF').value){m.innerHTML='<div class="err">Elegí la fecha.</div>';return;}
- var gn=FORM.grupos.filter(function(x){return x.cod===g;})[0];
- if(!confirm('¿Pasar a '+a[1]+'\nde '+(a[2]||'?')+' a '+gn.nombre+'\ndesde el '+fecha(el('cgF').value)+(num(el('cgC').value)?'\ncon cuota de '+gs(num(el('cgC').value)):'')+'?'))return;
- var b=el('cgB');b.disabled=true;b.textContent='Guardando…';
- pedir('cambioGrupo',{id:a[0],grupo:g,fecha:el('cgF').value,cuota:num(el('cgC').value)||''},function(r){
-   a[2]=r.grupo;hecho(esc(r.nombre)+' pasó a '+esc(r.grupo)+'.<br><span style="font-weight:normal;font-size:15px">No te olvides de sumarlo al grupo de WhatsApp nuevo.</span>','🔄 Cambiar a otro alumno','cambiarGrupo');},
-  function(e){b.disabled=false;b.textContent='🔄 Cambiar de grupo';falla(e,'cgM');});}
+ if(!modo){m.innerHTML='<div class="err">Elegí si mantiene el mismo plan de pagos o si lo cambia.</div>';return;}
+ var P={id:CG.a[0],grupo:g.cod,fecha:el('cgF').value,modo:modo,noVino:(el('cgNV')&&el('cgNV').checked)?'1':''};
+ if(modo==='cambiar'){var ct=/contado|completo|unico/i.test(el('cgP').value);
+  if(!num(el('cgC').value)){m.innerHTML='<div class="err">Falta '+(ct?'el monto total.':'la cuota mensual.')+'</div>';return;}
+  P.plan=el('cgP').value;P.monto=num(el('cgC').value);
+  if(!ct){var nm=!!(el('cgN')&&el('cgN').checked);P.normal=nm?'1':'';
+   if(!nm){if(g.conPlan&&!num(el('cgNC').value)){m.innerHTML='<div class="err">Escribí el N° de cuotas (o tildá "Plan normal del grupo").</div>';return;}
+    P.nCuotas=num(el('cgNC').value)||'';P.venc1=el('cgV1').value;P.ultima=num(el('cgU').value)||'';}}}
+ var Q={};for(var k in P)Q[k]=P[k];Q.vista='1';
+ m.innerHTML='<div class="ayuda">Calculando…</div>';
+ pedir('cambioGrupo',Q,function(v){edVista(v,'cgMsg','cambioGrupo',P);},function(e){falla(e,'cgMsg');});}
 
 // ---------- 🩺 JUSTIFICATIVO ----------
 var FJ=null;
@@ -993,7 +1030,7 @@ function edMenu(a){
  el('ed').innerHTML='<div class="card"><h2><span class="paso">2</span>¿Qué querés corregir de '+esc(a[1])+'?</h2>'+
   b('#5d4037','👤','Datos del alumno','Nombre, CI, celular, responsable, colegio, facturación…','edDatos(PICK)')+
   b('#1f4e79','📋','Datos de la inscripción','Cuota, plan, N° de cuotas, 1er vencimiento, beca, observaciones, inicio, salida, estado','edInsc(PICK)')+
-  b('#6a1b9a','🔄','Pasar a otro grupo si todavía NO empezó','Cambia el grupo y el plan de cuotas: no se le cobra el grupo viejo','edMover(PICK)')+
+  b('#6a1b9a','🔄','Cambiar de grupo','Mantener o cambiar su plan de pagos, y ver cómo queda la deuda antes de guardar','cgAbrir(PICK,\'ed\')')+
   b('#00695c','💸','Multas, ajustes y pagos','Perdonar multa, ajustes, anular un pago (abre su estado de cuenta)','abrirCobros(PICK[0])')+
   b('#ef6c00','🧾','Cuotas','Cuota nueva de acá en adelante o cambiar la última cuota (abre su estado de cuenta)','abrirCobros(PICK[0])')+
   '<div class="ayuda" style="margin-top:8px">Todo cambio de inscripción queda anotado en la hoja HISTORIAL DE CAMBIOS (quién, cuándo, antes y después).</div></div>';}
@@ -1013,7 +1050,7 @@ function edDatos(a){
      else if(c.tipo==='list'&&v!==''&&!c.ops.some(function(o){return o===v;})){e.innerHTML+='<option>'+esc(v)+'</option>';e.value=v;}
      else e.value=v;});
    },function(e){falla(e,'ed');});}
-// ---------- 📋 EDITAR INSCRIPCIÓN / 🔄 PASAR DE GRUPO SI NO EMPEZÓ (tanda 4t) ----------
+// ---------- 📋 EDITAR INSCRIPCIÓN (tanda 4t; el cambio de grupo ahora es 🔄 Cambiar de grupo, tanda 4w) ----------
 var ED={};
 function edCargar(a,fn){el('ed').innerHTML='<div class="card">Cargando su inscripción…</div>';
  pedir('inscEditarForm',{id:a[0]},function(r){ED.r=r;fn(r);},function(e){falla(e,'ed');});}
@@ -1032,7 +1069,7 @@ function edInscForm(){var r=ED.r,x=r.inscs[Number(el('eiS').value)||0],h='';
    inp='<select id="'+id+'"'+dis+'><option value=""></option>'+ops.map(function(o){return '<option'+(o===v?' selected':'')+'>'+esc(o)+'</option>';}).join('')+'</select>';}
   else inp='<input id="'+id+'" value="'+esc(v)+'"'+(c.tipo==='n'?' inputmode="numeric"':'')+dis+'>';
   h+='<label>'+esc(c.t)+(bloq?' <span class="ayuda">(es una fórmula: no se edita)</span>':'')+'</label>'+inp;});
- el('eiF').innerHTML=h+'<div class="ayuda" style="margin-top:8px">Para cambiarlo de grupo usá la opción "Pasar a otro grupo". Primero vas a ver qué cambia en sus cuotas y su deuda; recién ahí se guarda.</div>'+
+ el('eiF').innerHTML=h+'<div class="ayuda" style="margin-top:8px">Para cambiarlo de grupo usá "Cambiar de grupo" (en el menú anterior). Primero vas a ver qué cambia en sus cuotas y su deuda; recién ahí se guarda.</div>'+
   '<button class="btn az" id="eiB" onclick="edInscVer()">👀 Ver qué cambia</button>';el('eiM').innerHTML='';}
 function edInscVer(){var r=ED.r,x=r.inscs[Number(el('eiS').value)||0],D={},n=0;
  r.campos.forEach(function(c){var e=el('ei_'+c.k);if(!e||e.disabled)return;var v=String(e.value).trim(),o=x.vals[c.k]==null?'':String(x.vals[c.k]);
@@ -1046,50 +1083,21 @@ function edVista(r,dest,acc,P){
  if(r.sinCambios){el(dest).innerHTML='<div class="err">No hay nada distinto para guardar.</div>';return;}
  var lista=function(t,l){return '<div><b>'+t+'</b>'+(l.length?l.slice(0,14).map(function(q){return '<div style="font-size:13px;border-bottom:1px solid #eee;padding:2px 0">'+esc(q.concepto)+' · '+esc(q.vence)+'<br>'+gs(q.monto)+(q.saldo!==q.monto?' <span class="ayuda">(debe '+gs(q.saldo)+')</span>':'')+'</div>';}).join('')+(l.length>14?'<div class="ayuda">…y '+(l.length-14)+' más</div>':''):'<div class="ayuda">— sin cuotas —</div>')+'</div>';};
  var dd=r.despues.deuda-r.antes.deuda,h='<div class="card" style="background:#fffbe6;border-left:6px solid #f1c232;margin-top:12px"><b>👀 Esto es lo que va a cambiar</b>'+
+  (r.modoTxt?'<div class="ayuda" style="margin:4px 0">'+esc(r.modoTxt)+'</div>':'')+
   '<table style="width:100%;margin-top:6px;font-size:15px">'+r.cambios.map(function(c){return '<tr><td><b>'+esc(c.campo)+'</b></td><td>'+esc(c.antes)+'</td><td>→</td><td><b>'+esc(c.despues)+'</b></td></tr>';}).join('')+'</table>';
  if(r.omitidos&&r.omitidos.length)h+='<div class="ayuda">No se tocan (son fórmulas): '+esc(r.omitidos.join(', '))+'</div>';
  h+='<div style="margin-top:10px">💰 Deuda hoy: <b>'+gs(r.antes.deuda)+'</b> → <b>'+gs(r.despues.deuda)+'</b>'+(dd?' <span style="color:'+(dd<0?'#1b8a3a':'#c0392b')+'">('+(dd>0?'+ ':'− ')+gs(Math.abs(dd))+')</span>':' <span class="ayuda">(sin cambio)</span>')+'</div>';
  if((r.antes.favor||0)!==(r.despues.favor||0))h+='<div>💚 Saldo a favor: <b>'+gs(r.antes.favor||0)+'</b> → <b>'+gs(r.despues.favor||0)+'</b></div>';
+ h+='<div style="margin-top:6px;padding:6px 8px;background:#fff;border-radius:6px"><b>📝 Cómo queda la deuda:</b> '+(dd>0?'la deuda de hoy <b style="color:#c0392b">sube '+gs(dd)+'</b>':dd<0?'la deuda de hoy <b style="color:#1b8a3a">baja '+gs(-dd)+'</b>':'la deuda de hoy <b>no cambia</b>')+
+  ' · cuotas en total: '+r.antes.cuotas.length+' → '+r.despues.cuotas.length+'.</div>';
  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">'+lista('Cuotas antes',r.antes.cuotas)+lista('Cuotas después',r.despues.cuotas)+'</div>'+
   '<button class="btn" id="edOk" onclick="edGuardar()">✅ Confirmar y guardar</button><div id="edErr"></div></div>';
  ED.ult={acc:acc,P:P,dest:dest};el(dest).innerHTML=h;}
 function edGuardar(){var u=ED.ult,b=el('edOk');b.disabled=true;b.textContent='Guardando…';
- pedir(u.acc,u.P,function(r){hecho('Listo: '+esc(PICK[1])+(u.acc==='inscMover'?' pasó de grupo y su plan quedó actualizado (se recalculan las deudas en un minuto).':' — inscripción actualizada ('+r.cambios.length+' cambio'+(r.cambios.length>1?'s':'')+'; se recalculan las deudas en un minuto).'),'✏️ Corregir otra cosa','editar');},
+ pedir(u.acc,u.P,function(r){
+  if(u.acc==='cambioGrupo'){hecho(esc(r.nombre||PICK[1])+' pasó a '+esc(r.grupo||'')+'.<br><span style="font-weight:normal;font-size:15px">No te olvides de sumarlo al grupo de WhatsApp nuevo. Las deudas se recalculan en un minuto.</span>','🔄 Cambiar a otro alumno','cambiarGrupo');return;}
+  hecho('Listo: '+esc(PICK[1])+(u.acc==='inscMover'?' pasó de grupo y su plan quedó actualizado (se recalculan las deudas en un minuto).':' — inscripción actualizada ('+r.cambios.length+' cambio'+(r.cambios.length>1?'s':'')+'; se recalculan las deudas en un minuto).'),'✏️ Corregir otra cosa','editar');},
   function(e){b.disabled=false;b.textContent='✅ Confirmar y guardar';falla(e,'edErr');});}
-function edMover(a){edCargar(a,function(r){
- var x=r.inscs.filter(function(i){return i.activa;})[0];
- if(!x){el('ed').innerHTML='<div class="card"><div class="err">'+esc(a[1])+' no tiene una inscripción abierta para mover.</div></div>';return;}
- ED.mv=x;
- el('ed').innerHTML='<div class="card"><h2>🔄 Pasar a otro grupo (todavía no empezó)</h2>'+
-  '<div class="ayuda">Hoy figura en <b>'+esc(x.grupoNombre)+'</b>, desde '+esc(x.inicioTxt||'—')+'. Se corrige <b>la misma inscripción</b>: no se le cobra el grupo viejo. Lo que ya pagó queda a su favor y se aplica a las cuotas del grupo nuevo.</div>'+
-  '<label>Grupo nuevo <span class="req">*</span></label><select id="emG" onchange="edMoverG()"><option value=""></option>'+
-  r.grupos.filter(function(g){return g.cod!==x.grupo;}).map(function(g){return '<option value="'+esc(g.cod)+'">'+esc(g.nombre)+'</option>';}).join('')+'</select>'+
-  '<div id="emR"></div><div id="emM"></div></div>';});}
-function edMoverG(){var r=ED.r,x=ED.mv,cod=el('emG').value,g=r.grupos.filter(function(q){return q.cod===cod;})[0];
- if(!g){el('emR').innerHTML='';return;}ED.g=g;
- var pl=(r.planes.filter(function(o){return /cuota/i.test(o);})[0])||r.planes[0]||'Cuotas';
- el('emR').innerHTML='<div class="fila"><div><label>Inicio en el grupo nuevo <span class="req">*</span></label><input type="date" id="emI" value="'+esc(g.inicio||r.hoy)+'"></div>'+
-  '<div><label>Plan</label><select id="emP" onchange="edMoverPlan()">'+(r.planes.length?r.planes:['Cuotas','Contado']).map(function(o){return '<option'+(o===pl?' selected':'')+'>'+esc(o)+'</option>';}).join('')+'</select></div></div>'+
-  '<div id="emCuo"></div>'+
-  (x.empezo?'<label style="margin-top:12px;display:block"><input type="checkbox" id="emV"> Confirmo que NO vino a ninguna clase (su inscripción figura desde el '+esc(x.inicioTxt)+')</label>':'')+
-  '<button class="btn az" onclick="edMoverVer()">👀 Ver qué cambia</button>';
- edMoverPlan();}
-function edMoverPlan(){var g=ED.g,ct=/contado|completo|unico/i.test(el('emP').value),h='';
- h+='<label>'+(ct?'Monto total (Gs.)':'Cuota mensual (Gs.)')+' <span class="req">*</span></label><input id="emC" inputmode="numeric" oninput="fmt(this)" value="'+((ct?g.contado:g.cuota)?Number(ct?g.contado:g.cuota).toLocaleString('es-PY'):'')+'">';
- if(!ct){h+='<div class="fila"><div><label>1er vencimiento</label><input type="date" id="emV1" value="'+esc(g.venc1||'')+'"></div>'+
-  (g.conPlan?'<div style="padding-top:26px"><label><input type="checkbox" id="emN" checked> Plan normal del grupo'+(g.nCuotas?' ('+g.nCuotas+' cuotas)':'')+'</label></div>'
-   :'<div><label>N° de cuotas <span class="ayuda">(opcional)</span></label><input id="emNC" inputmode="numeric" value="'+(g.nCuotas||'')+'"></div>')+'</div>';}
- el('emCuo').innerHTML=h;}
-function edMoverVer(){var x=ED.mv,g=ED.g,m=el('emM');
- if(x.empezo&&!el('emV').checked){m.innerHTML='<div class="err">Para pasarlo de grupo así, confirmá que no vino a ninguna clase. Si ya vino, usá "🔄 Cambiar de grupo" del inicio.</div>';return;}
- if(!el('emI').value){m.innerHTML='<div class="err">Falta el inicio en el grupo nuevo.</div>';return;}
- var ct=/contado|completo|unico/i.test(el('emP').value);
- if(!num(el('emC').value)){m.innerHTML='<div class="err">Falta '+(ct?'el monto total.':'la cuota mensual.')+'</div>';return;}
- var d={grupo:g.cod,inicio:el('emI').value,plan:el('emP').value,monto:num(el('emC').value),venc1:ct?'':el('emV1').value,normal:!ct&&!!el('emN')&&el('emN').checked,
-  nCuotas:!ct&&el('emNC')?num(el('emNC').value):'',noVino:!!(el('emV')&&el('emV').checked)};
- var P={id:PICK[0],fila:x.fila,datos:JSON.stringify(d)},Q={};for(var k in P)Q[k]=P[k];Q.vista='1';
- m.innerHTML='<div class="ayuda">Calculando…</div>';
- pedir('inscMover',Q,function(v){edVista(v,'emM','inscMover',P);},function(e){falla(e,'emM');});}
 function guardarEdicion(){var a=PICK,m=el('eM'),d={},falta='';
  FORM.campos.forEach(function(c){var e=el('al'+c.j);if(!e)return;var v=c.tipo==='check'?e.checked:(c.tipo==='number'?(num(e.value)||''):e.value.trim());
   if(c.tipo==='number')v=e.value.trim()===''?'':num(e.value);
