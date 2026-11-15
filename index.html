@@ -812,8 +812,8 @@ function cgGrupo(){var r=CG.r,x=CG.x,g=r.grupos.filter(function(q){return q.cod=
   '<label>'+(x.empezo?'Desde el día':'Inicio en el grupo nuevo')+' <span class="req">*</span></label><input type="date" id="cgF" value="'+esc(x.empezo?r.hoy:(g.inicio||r.hoy))+'">'+
   (x.empezo?'<label style="margin-top:10px;display:block"><input type="checkbox" id="cgNV"> No vino a ninguna clase (no se le cobra el grupo viejo)</label>':'')+
   '<div style="margin-top:14px;font-weight:bold">Plan de pagos <span class="req">*</span> <span class="ayuda">(elegí una opción)</span></div>'+
-  '<label style="display:block;margin-top:6px"><input type="radio" name="cgModo" value="mantener" onchange="cgModo()"> Mantener el mismo plan de pagos<br><span class="ayuda">Hoy: '+esc(CG.res)+'</span></label>'+
-  '<label style="display:block;margin-top:6px"><input type="radio" name="cgModo" value="cambiar" onchange="cgModo()"> Cambiar el plan de pagos</label>'+
+  '<label style="display:flex;align-items:center;gap:10px;margin-top:8px;font-weight:bold"><input type="radio" name="cgModo" value="mantener" onchange="cgModo()" style="width:auto;margin:0;transform:scale(1.4);flex:none"><span>Mantener el mismo plan de pagos<br><span class="ayuda" style="font-weight:normal">Hoy: '+esc(CG.res)+'</span></span></label>'+
+  '<label style="display:flex;align-items:center;gap:10px;margin-top:8px;font-weight:bold"><input type="radio" name="cgModo" value="cambiar" onchange="cgModo()" style="width:auto;margin:0;transform:scale(1.4);flex:none"><span>Cambiar el plan de pagos</span></label>'+
   '<div id="cgPl"></div><button class="btn az" onclick="cgVer()">👀 Ver cómo queda su deuda</button>';
  el('cgMsg').innerHTML='';}
 function cgModo(){var r=CG.r;el('cgMsg').innerHTML='';
