@@ -115,7 +115,7 @@ function fecha(iso){if(!iso)return '';var p=iso.split('-');return p[2]+'/'+p[1]+
 function guardado(k,v){try{if(v===undefined)return localStorage.getItem(k)||'';localStorage.setItem(k,v);}catch(e){return '';}}
 function msg(t){el('msg').innerHTML=t||'';}
 // 4w-C: acciones de formulario que, si la planilla sigue ocupada tras los 8 reintentos, quedan en la cola del navegador y se guardan solas
-var VERSION_PANEL='5a';
+var VERSION_PANEL='5b';
 var COLA_G={cambioGrupo:'Cambio de grupo',inscEditar:'Edición de la inscripción',baja:'Baja',actualizarAlumno:'Datos del alumno',gasto:'Gasto',justificativo:'Justificativo'};
 function pedir(acc,params,ok,mal,opt){
  var q='accion='+acc+'&pin='+encodeURIComponent(PIN);
@@ -167,14 +167,18 @@ function cobOrden(l){var o=COB_O,pr=function(x){return !x.promesa?3:x.promesa.es
   var d=o==='asistencia'?ao(a)-ao(b):o==='atraso'?b.dias-a.dias:o==='contacto'?((b.ultimo?b.ultimo.dias:9999)-(a.ultimo?a.ultimo.dias:9999)):o==='promesa'?pr(a)-pr(b):0;
   return d||b.deuda-a.deuda||nom(a,b);});}
 function pintarCob(){if(!COB)return;var c=COB.cobrado,t=COB.tablero,m=COB.meta;
- var h='<div class="card"><h2>💰 Panel de deudas · '+esc(COB.mes)+'</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px">'+
-  cK('Deuda total de Gauss',gs(t.antAct+t.mesVencAct),COB.alumnos.filter(function(x){return x.activo;}).length+' alumnos · ya vencida','#f4cccc')+
-  cK('Deuda de este mes',gs(t.mesAct),'ya vencido: '+gs(t.mesVencAct)+' · '+t.mesActN+' alumnos','#fff2cc')+
-  cK('Deuda de meses anteriores',gs(t.antAct),t.antActN+' alumnos','#f4cccc')+
-  cK('Cobrado esta semana',gs(c.semAnt+c.semMes),'de deudas anteriores '+gs(c.semAnt)+'<br>del mes '+gs(c.semMes),'#d9ead3')+
-  cK('Cobrado este mes',gs(c.mesAnt+c.mesMes),'de deudas anteriores '+gs(c.mesAnt)+'<br>del mes '+gs(c.mesMes),'#d9ead3')+'</div>'+
-  '<div class="ayuda" style="margin-top:6px">Semana: '+esc(COB.semana)+' (lunes a sábado). "De deudas anteriores" = lo que se cobró de cuotas de meses anteriores. Solo alumnos activos.</div>'+
-  (t.salidosN?'<div class="ayuda" style="margin-top:4px">🚪 Los que ya salieron deben '+gs(t.salidos)+' ('+t.salidosN+' alumnos) · <a href="javascript:void 0" onclick="cobF(\'salidos\')">ver</a></div>':'');
+ var dia=Number(String(COB.hoy||'').slice(8,10))||'',mn=esc(String(COB.mes).split(' ')[0]),rep=function(a,s,n){return 'Activos '+gs(a)+' · salidos '+gs(s)+(n!==undefined?' · '+n+' alumnos':'');};
+ var h='<div class="card"><h2>💰 Panel de deudas · '+esc(COB.mes)+'</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px">'+
+  cK('Deuda total vencida',gs(t.totT),'<b>Todo lo que ya venció hasta hoy</b> y no se pagó (cuotas y multas), de todos los alumnos: los que siguen y los que ya salieron.<br>'+rep(t.totA,t.totS,t.totN),'#f4cccc')+
+  cK('Deuda de meses anteriores',gs(t.antT),'<b>Vencido antes del 1.º de '+mn+'.</b> Cuotas y multas de meses pasados que siguen sin pagarse.<br>'+rep(t.antA,t.antS,t.antN),'#f4cccc')+
+  cK('Vencido de '+mn+' hasta hoy',gs(t.mvT),'<b>Cuotas de '+mn+' que vencieron del 1 al '+dia+'</b> y siguen sin pagarse (más sus multas).<br>'+rep(t.mvA,t.mvS,t.mvN),'#fce5cd')+
+  cK('Todo lo que vence en '+mn,gs(t.mtT),'<b>Total de cuotas con vencimiento en '+mn+'</b>, ya vencidas y por vencer.<br>Ya vencido '+gs(t.mvT)+' · por vencer '+gs(t.mtT-t.mvT)+'<br>'+rep(t.mtA,t.mtS,t.mtN),'#fff2cc')+'</div>'+
+  '<div class="ayuda" style="margin-top:6px">Deuda total vencida = deuda de meses anteriores + vencido de '+mn+' hasta hoy.</div>'+
+  '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin-top:10px">'+
+  cK('Cobrado esta semana',gs(c.semAnt+c.semMes),'<b>Cuotas y multas pagadas de lunes a sábado</b> (por fecha de pago).<br>De deudas anteriores '+gs(c.semAnt)+'<br>Del mes '+gs(c.semMes),'#d9ead3')+
+  cK('Cobrado este mes',gs(c.mesAnt+c.mesMes),'<b>Cuotas y multas pagadas en '+mn+'</b> (por fecha de pago; sin materiales ni saldo a favor). Puede no coincidir con el cierre diario, que cuenta por fecha de carga.<br>De deudas anteriores '+gs(c.mesAnt)+'<br>Del mes '+gs(c.mesMes),'#d9ead3')+'</div>'+
+  '<div class="ayuda" style="margin-top:6px">Semana: '+esc(COB.semana)+' (lunes a sábado). "De deudas anteriores" = lo que se cobró de cuotas de meses anteriores.</div>'+
+  (t.salidosN?'<div class="ayuda" style="margin-top:4px">🚪 Los que ya salieron deben '+gs(t.totS)+' ('+t.salidosN+' alumnos) · <a href="javascript:void 0" onclick="cobF(\'salidos\')">ver</a></div>':'');
  // meta
  if(m&&m.monto){var hecho=m.cuenta==='todo'?c.mesAnt+c.mesMes:c.mesAnt,pct=Math.min(100,Math.round(hecho*100/m.monto));
   h+='<div style="margin-top:12px"><b>🎯 Meta de '+esc(COB.mes)+':</b> '+(m.cuenta==='todo'?'cobrar ':'recuperar ')+gs(m.monto)+(m.cuenta==='todo'?' en total':' de deudas anteriores')+
@@ -1333,5 +1337,5 @@ function gbPintar(filtro){
  var inp=document.getElementById('gbF');if(inp&&filtro){inp.focus();try{inp.setSelectionRange(filtro.length,filtro.length);}catch(e){}}}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',gbInit);else gbInit();
 
-</script><div id="verTxt" style="text-align:center;color:#999;font-size:12px;padding:14px 0 24px">Panel 5a</div>
+</script><div id="verTxt" style="text-align:center;color:#999;font-size:12px;padding:14px 0 24px">Panel 5b</div>
 </body></html>
