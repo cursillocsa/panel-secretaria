@@ -115,7 +115,7 @@ function fecha(iso){if(!iso)return '';var p=iso.split('-');return p[2]+'/'+p[1]+
 function guardado(k,v){try{if(v===undefined)return localStorage.getItem(k)||'';localStorage.setItem(k,v);}catch(e){return '';}}
 function msg(t){el('msg').innerHTML=t||'';}
 // 4w-C: acciones de formulario que, si la planilla sigue ocupada tras los 8 reintentos, quedan en la cola del navegador y se guardan solas
-var VERSION_PANEL='5b';
+var VERSION_PANEL='5c';
 var COLA_G={cambioGrupo:'Cambio de grupo',inscEditar:'Edición de la inscripción',baja:'Baja',actualizarAlumno:'Datos del alumno',gasto:'Gasto',justificativo:'Justificativo'};
 function pedir(acc,params,ok,mal,opt){
  var q='accion='+acc+'&pin='+encodeURIComponent(PIN);
@@ -1321,21 +1321,26 @@ function gbCargar(){
   document.getElementById('gbCuerpo').innerHTML='<p style="color:#b71c1c">'+gbEsc(String(e&&e.message||e).replace(/^.*PIN:\s*/,'PIN: '))+'</p><button class="gbAct" type="button" onclick="gbCargar()">🔄 Probar de nuevo</button>';});}
 function gbPintar(filtro){
  var d=GB_DATOS;if(!d)return;
- var f=String(filtro||'').toLowerCase(),h='';
+ var f=String(filtro||'').toLowerCase(),h='',nEn=d.grupos.filter(function(g){return !g.pe;}).length;
  var chips='';d.cursos.forEach(function(c){chips+='<span>'+gbEsc(c.curso)+': '+gbN(c.act)+'</span>';});
- h+='<div class="gbTot"><b>'+gbN(d.total)+'</b> alumnos activos en <b>'+d.grupos.length+'</b> '+(d.grupos.length===1?'grupo':'grupos')+(d.anot?' · '+gbN(d.anot)+' anotados para pasar de grupo':'')+'<br><small>Al '+gbEsc(d.hoy||'')+'</small></div><div class="gbChips">'+chips+'</div>';
+ h+='<div class="gbTot"><b>'+gbN(d.total)+'</b> alumnos activos en <b>'+nEn+'</b> '+(nEn===1?'grupo':'grupos')+(d.anot?' · '+gbN(d.anot)+' anotados para pasar de grupo':'')+'<br><small>Al '+gbEsc(d.hoy||'')+'</small></div><div class="gbChips">'+chips+'</div>';
  h+='<input id="gbF" type="search" placeholder="Buscar grupo…" value="'+gbEsc(filtro||'')+'" oninput="gbPintar(this.value)">';
- var ult=null,sub={},lista=[];
- d.grupos.forEach(function(g){if(f&&(g.nombre+' '+g.curso+' '+g.mod).toLowerCase().indexOf(f)<0)return;lista.push(g);sub[g.curso]=(sub[g.curso]||0)+g.act;});
+ var ult=null,sub={},lista=[],prox=[];
+ d.grupos.forEach(function(g){if(f&&(g.nombre+' '+g.curso+' '+g.mod).toLowerCase().indexOf(f)<0)return;if(g.pe){prox.push(g);return;}lista.push(g);sub[g.curso]=(sub[g.curso]||0)+g.act;});
  lista.forEach(function(g){
   if(g.curso!==ult){ult=g.curso;h+='<div class="gbCurso"><span>'+gbEsc(g.curso)+'</span><span>'+gbN(sub[g.curso])+'</span></div>';}
   var det=[];if(g.mod)det.push(g.mod);if(g.anot)det.push('+'+g.anot+' anotados');if(g.fin)det.push('termina '+g.fin);
   h+='<div class="gbFila"><div>'+gbEsc(g.nombre)+(det.length?'<small>'+gbEsc(det.join(' · '))+'</small>':'')+'</div><b>'+gbN(g.act)+'</b></div>';});
- if(!lista.length)h+='<p>No hay grupos que coincidan.</p>';
+ if(prox.length){prox.sort(function(a,b){return (a._ini||0)-(b._ini||0);});
+  h+='<div class="gbCurso" style="background:#6a3d9a;margin-top:14px"><span>🗓️ Grupos por empezar</span><span>'+prox.length+'</span></div>';
+  prox.forEach(function(g){var det=['empieza '+g.inicio];if(g.mod)det.push(g.mod);if(g.curso)det.push(g.curso);
+   h+='<div class="gbFila"><div>'+gbEsc(g.nombre)+'<small>'+gbEsc(det.join(' · '))+'</small></div><b title="inscriptos">'+gbN(g.act+(g.anot||0))+'</b></div>';});
+  h+='<div class="ayuda" style="font-size:12px;color:#777;margin-top:4px">El número es la cantidad de inscriptos hasta ahora.</div>';}
+ if(!lista.length&&!prox.length)h+='<p>No hay grupos que coincidan.</p>';
  h+='<button class="gbAct" type="button" onclick="gbCargar()">🔄 Actualizar</button>';
  document.getElementById('gbCuerpo').innerHTML=h;
  var inp=document.getElementById('gbF');if(inp&&filtro){inp.focus();try{inp.setSelectionRange(filtro.length,filtro.length);}catch(e){}}}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',gbInit);else gbInit();
 
-</script><div id="verTxt" style="text-align:center;color:#999;font-size:12px;padding:14px 0 24px">Panel 5b</div>
+</script><div id="verTxt" style="text-align:center;color:#999;font-size:12px;padding:14px 0 24px">Panel 5c</div>
 </body></html>
