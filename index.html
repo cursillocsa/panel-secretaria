@@ -115,7 +115,7 @@ function fecha(iso){if(!iso)return '';var p=iso.split('-');return p[2]+'/'+p[1]+
 function guardado(k,v){try{if(v===undefined)return localStorage.getItem(k)||'';localStorage.setItem(k,v);}catch(e){return '';}}
 function msg(t){el('msg').innerHTML=t||'';}
 // 4w-C: acciones de formulario que, si la planilla sigue ocupada tras los 8 reintentos, quedan en la cola del navegador y se guardan solas
-var VERSION_PANEL='5g';
+var VERSION_PANEL='5i';
 var COLA_G={cambioGrupo:'Cambio de grupo',inscEditar:'Edición de la inscripción',baja:'Baja',actualizarAlumno:'Datos del alumno',gasto:'Gasto',justificativo:'Justificativo'};
 function pedir(acc,params,ok,mal,opt){
  var q='accion='+acc+'&pin='+encodeURIComponent(PIN);
@@ -301,6 +301,7 @@ function inicio(desdeHist){if(COBROS_ABIERTO)HP_T=0;cerrarCobros();if(!desdeHist
   '<button class="bgrande b1" style="background:#8d6e63" onclick="libros()">📚 Venta de libros<small>Matemática 1, Matemática 2, Ejercitario CPI…</small></button>'+
   '<button class="bgrande b1" style="background:#5d4037" onclick="editar()">✏️ Corregir o actualizar datos<small>Datos, inscripción, cuota y plan, pasar de grupo si no empezó, multas…</small></button>'+
   '<button class="bgrande b1" style="background:#455a64" onclick="baja()">🚪 Dar de baja<small>Cuando un alumno deja el cursillo</small></button>'+
+  '<button class="bgrande b1" style="background:#00695c" onclick="grupos()">👥 Grupos<small>Ver un grupo: alumnos, estado, celulares, Ingenia, plan, beca y deuda</small></button>'+
   '<button class="bgrande b1" style="background:#0277bd" onclick="contactos()">📇 Exportar contactos<small>CSV para Google Contactos · alumnos y responsables por grupo o modalidad</small></button>'+
   '<button class="bgrande b1" style="background:#37474f" onclick="cargasSemana()">📒 Cargas de la semana<small>Pagos, inscripciones, ajustes, gastos… de sábado a viernes</small></button>'+
   '</div>'+tarjetaReservas();
@@ -1189,6 +1190,98 @@ function guardarEdicion(){var a=PICK,m=el('eM'),d={},falta='';
 
 // ---------- 📒 CARGAS DE LA SEMANA ----------
 var CS_MODO='0';
+// ---------- 👥 GRUPOS (tanda 5h): elegir un grupo y ver sus alumnos ----------
+var GRX=null,GRD=null,GRFIL='activos';
+function grupos(){GRX=null;GRD=null;
+ pantalla('<div class="card"><h2>👥 Grupos</h2><div id="grW">Cargando grupos…</div></div>');
+ pedir('gruposResumen',{},function(d){GRX=d;grLista('');},function(e){falla(e,'grW');});}
+function grLista(f){
+ var d=GRX;if(!d)return;var q=sa(f||''),h='<input id="grF" type="search" placeholder="Buscar grupo…" value="'+esc(f||'')+'" oninput="grLista(this.value)" style="margin-bottom:8px">',ult=null,n=0;
+ d.grupos.forEach(function(g,i){
+  if(q&&sa(g.nombre+' '+g.curso+' '+g.mod).indexOf(q)<0)return;n++;
+  if(g.curso!==ult){ult=g.curso;h+='<div style="background:#0d47a1;color:#fff;border-radius:8px;padding:6px 10px;margin:12px 0 4px;font-weight:bold">'+esc(g.curso)+'</div>';}
+  var det=[];if(g.mod)det.push(g.mod);if(g.pe)det.push('empieza '+g.inicio);else if(g.fin)det.push('termina '+g.fin);
+  h+='<div onclick="grVer('+i+')" style="display:flex;justify-content:space-between;align-items:center;padding:10px 6px;border-bottom:1px solid #e5e5e5;cursor:pointer"><div><b>'+esc(g.nombre)+'</b>'+(det.length?'<br><small style="color:#777">'+esc(det.join(' · '))+'</small>':'')+'</div><b style="font-size:18px">'+(g.act+(g.pe?(g.anot||0):0))+'</b></div>';});
+ if(!n)h+='<p>No hay grupos que coincidan.</p>';
+ el('grW').innerHTML=h;
+ var inp=el('grF');if(inp&&f){inp.focus();try{inp.setSelectionRange(f.length,f.length);}catch(e){}}}
+function grVer(i){var g=GRX.grupos[i];GRFIL='activos';
+ pantalla('<div class="card"><h2>👥 '+esc(g.nombre)+'</h2><div id="grW">Cargando alumnos…</div></div>');
+ pedir('grupoDetalle',{cod:g.cod},function(d){GRD=d;GRFIL=d.res.act||!d.res.pe?'activos':'todos';grDetalle();},function(e){falla(e,'grW');});}
+function grCol(est){return est==='Activo'?'#2e7d32':(est==='Por empezar'?'#6a3d9a':'#8d6e63');}
+function grDetalle(){
+ var d=GRD,r=d.res,h='';
+ h+='<div class="sub">'+esc([d.curso,d.mod].filter(Boolean).join(' · '))+'</div>';
+ h+='<div class="sub">'+(d.empezo?'Empezó el '+esc(d.inicio||'—'):'Empieza el '+esc(d.inicio))+(d.fin?' · termina el '+esc(d.fin):'')+'</div>';
+ if(d.cuotaGrupo||d.contadoGrupo)h+='<div class="sub">Cuota del grupo: '+esc(d.cuotaGrupo||'—')+(d.contadoGrupo?' · Contado: '+esc(d.contadoGrupo):'')+'</div>';
+ h+='<div class="grid">'+
+  '<div class="k g"><span>Activos</span><b>'+r.act+'</b></div>'+
+  (r.pe?'<div class="k b"><span>Por empezar</span><b>'+r.pe+'</b></div>':'')+
+  '<div class="k"><span>Salieron / terminaron</span><b>'+r.sal+'</b></div>'+
+  '<div class="k '+(r.nDeuda?'r':'g')+'"><span>Con deuda vencida</span><b>'+r.nDeuda+'</b></div>'+
+  '<div class="k '+(r.deuda>0?'r':'g')+'"><span>Deuda vencida del grupo</span><b>'+(r.deuda>0?gs(r.deuda):'Al día')+'</b></div>'+
+  (r.cobrado!==null?'<div class="k b"><span>Cobrado este mes</span><b>'+gs(r.cobrado)+'</b></div>':'')+
+  (r.sinIng!==null?'<div class="k '+(r.sinIng?'y':'g')+'"><span>Sin Ingenia</span><b>'+r.sinIng+'</b></div>':'')+
+  '</div>';
+ if(r.becas.length)h+='<div class="sub" style="margin-top:8px">🎓 Becas: '+r.becas.map(function(b){return esc(b.t)+' ('+b.n+')';}).join(' · ')+'</div>';
+ var cuenta=function(k){return k==='todos'?d.filas.length:d.filas.filter(function(x){return grPasa(x,k);}).length;};
+ h+='<div style="margin:12px 0 6px">';
+ [['activos','Activos'],['todos','Todos'],['deuda','Con deuda'],['pe','Por empezar'],['salidos','Salidos']].forEach(function(b){
+  if(b[0]==='pe'&&!r.pe)return;
+  var on=GRFIL===b[0];
+  h+='<button type="button" onclick="grFiltro(\''+b[0]+'\')" style="display:inline-block;width:auto;margin:2px 4px 2px 0;padding:6px 12px;border-radius:16px;border:1px solid #0d47a1;font-size:14px;cursor:pointer;background:'+(on?'#0d47a1':'#fff')+';color:'+(on?'#fff':'#0d47a1')+'">'+b[1]+' ('+cuenta(b[0])+')</button>';});
+ h+='</div><input id="grB" type="search" placeholder="Buscar alumno…" oninput="grFilas()" style="margin-bottom:6px"><div id="grFil"></div>'+
+  '<button class="btn" style="margin-top:10px;background:#455a64" onclick="grCopiar()">📋 Copiar lista</button><div id="grCp"></div>'+
+  '<button class="btn" style="margin-top:8px;background:#b71c1c" onclick="grPdfForm()">📄 Lista en PDF</button><div id="grPd"></div>'+
+  '<button class="btn" style="margin-top:8px;background:#1565c0" onclick="grVerOtro()">⬅️ Elegir otro grupo</button>';
+ el('grW').innerHTML=h;grFilas();}
+function grVerOtro(){grupos();}
+function grPasa(x,k){
+ if(k==='todos')return true;
+ if(k==='activos')return x.estado==='Activo';
+ if(k==='pe')return x.estado==='Por empezar';
+ if(k==='deuda')return x.deuda>0;
+ if(k==='salidos')return x.estado==='Salió'||x.estado==='Terminó';
+ return true;}
+function grFiltro(k){GRFIL=k;var b=el('grB'),v=b?b.value:'';grDetalle();if(v){el('grB').value=v;grFilas();}}
+function grTel(t){t=String(t||'').trim();if(!t)return '<span style="color:#aaa">sin celular</span>';var n=t.replace(/[^0-9+]/g,'');return '<a href="tel:'+esc(n)+'" onclick="event.stopPropagation()" style="color:#1155cc">'+esc(t)+'</a>';}
+function grFilas(){
+ var d=GRD,q=sa((el('grB')||{value:''}).value),h='',n=0;
+ d.filas.forEach(function(x){
+  if(!grPasa(x,GRFIL))return;if(q&&sa(x.nombre+' '+x.id).indexOf(q)<0)return;n++;
+  h+='<div style="border-bottom:1px solid #e5e5e5;padding:9px 4px">'+
+   '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b style="cursor:pointer;color:#0d47a1" onclick="abrirCobros(\''+esc(x.id)+'\')">'+esc(x.nombre)+'</b>'+
+   '<span style="font-size:12px;font-weight:bold;color:#fff;background:'+grCol(x.estado)+';padding:2px 9px;border-radius:10px;white-space:nowrap">'+esc(x.estado)+'</span></div>'+
+   '<div style="font-size:13px;color:#555;margin-top:3px">📱 Alumno: '+grTel(x.cel)+'</div>'+
+   '<div style="font-size:13px;color:#555">👪 Responsable: '+esc(x.resp||'—')+' · '+grTel(x.celResp)+'</div>'+
+   '<div style="font-size:13px;color:#555;margin-top:3px">💳 '+esc(x.plan)+(x.beca?' · 🎓 '+esc(x.beca):'')+(d.ingOk?' · 🖥️ Ingenia: '+(x.ing?'<b style="color:#2e7d32">sí</b>':'<b style="color:#b71c1c">no</b>'):'')+'</div>'+
+   '<div style="font-size:13px;margin-top:3px;color:'+(x.deuda>0?'#b71c1c':'#2e7d32')+'">'+(x.estado==='Salió'||x.estado==='Terminó'?'<span style="color:#777">Desde '+esc(x.desde||'—')+(x.salida?' · salió el '+esc(x.salida):'')+'</span>':(x.deuda>0?'Deuda vencida: <b>'+gs(x.deuda)+'</b>':'✓ Al día')+(x.prox?' <span style="color:#777">· próx. '+esc(x.prox)+'</span>':''))+'</div></div>';});
+ el('grFil').innerHTML=n?h:'<p class="vacio">No hay alumnos con ese filtro.</p>';}
+
+var GR_COLS=[['ci','C.I.'],['estado','Estado (activo, salió…)'],['cel','Celular del alumno'],['resp','Responsable'],['celResp','Celular del responsable'],['plan','Plan y cuota'],['beca','Beca'],['ing','En Ingenia'],['deuda','Deuda vencida'],['desde','Fecha de inicio'],['blanco','Columna en blanco (para tildar a mano)']];
+function grIdsVisibles(){var q=sa((el('grB')||{value:''}).value),a=[];GRD.filas.forEach(function(x){if(!grPasa(x,GRFIL))return;if(q&&sa(x.nombre+' '+x.id).indexOf(q)<0)return;a.push(x.id);});return a;}
+function grPdfForm(){
+ var ids=grIdsVisibles();if(!ids.length){el('grPd').innerHTML='<div class="err" style="margin-top:6px">No hay alumnos con este filtro.</div>';return;}
+ var gu={};try{gu=JSON.parse(guardado('gaussGrPdfCols')||'{}');}catch(e){}
+ var h='<div class="card" style="margin-top:8px;background:#f7f7f7"><b>📄 Lista en PDF</b><div class="ayuda">Va el nombre de los <b>'+ids.length+'</b> alumnos que estás viendo. Tildá lo que querés agregar:</div>';
+ GR_COLS.forEach(function(c){h+='<label style="display:flex;align-items:center;gap:10px;font-weight:normal;margin:6px 0"><input type="checkbox" class="grC" value="'+c[0]+'"'+(gu[c[0]]?' checked':'')+' style="width:auto;margin:0;transform:scale(1.4);flex:none"><span>'+esc(c[1])+'</span></label>';});
+ h+='<button class="btn" id="grPb" style="margin-top:8px" onclick="grPdf()">📄 Generar PDF</button><div id="grPr"></div></div>';
+ el('grPd').innerHTML=h;}
+function grPdf(){
+ var ids=grIdsVisibles(),cols=[],gu={};if(!ids.length)return;
+ var cs=document.querySelectorAll('.grC');for(var i=0;i<cs.length;i++){gu[cs[i].value]=cs[i].checked;if(cs[i].checked)cols.push(cs[i].value);}
+ guardado('gaussGrPdfCols',JSON.stringify(gu));
+ var nom={activos:'Activos',todos:'Todos',deuda:'Con deuda',pe:'Por empezar',salidos:'Salidos'}[GRFIL]||'';
+ var b=el('grPb');b.disabled=true;b.textContent='Generando… (unos segundos)';
+ pedir('grupoPdf',{cod:GRD.cod,ids:ids.join(','),cols:cols.join(','),filtro:nom},function(r){b.disabled=false;b.textContent='📄 Generar PDF';
+  el('grPr').innerHTML='<div style="padding:8px 0">✅ <b>Lista de '+esc(r.nombre)+'</b> ('+r.n+' alumnos)<br><a class="wa az" href="'+esc(r.ver)+'" target="_blank">👁️ Ver PDF</a><a class="wa gr" href="'+esc(r.bajar)+'" target="_blank">⬇️ Descargar</a></div>';},
+  function(e){b.disabled=false;b.textContent='📄 Generar PDF';falla(e,'grPr');});}
+function grCopiar(){
+ var d=GRD,t=d.nombre+'\n',n=0;
+ d.filas.forEach(function(x){if(!grPasa(x,GRFIL))return;n++;t+=n+'. '+x.nombre+(x.cel?' · '+x.cel:'')+(x.celResp?' · Resp: '+x.celResp:'')+'\n';});
+ var ok=function(){el('grCp').innerHTML='<div class="ok" style="margin-top:6px">✅ Copiada la lista ('+n+' alumnos).</div>';};
+ var mal=function(){el('grCp').innerHTML='<textarea style="width:100%;height:160px;margin-top:6px" readonly onfocus="this.select()">'+esc(t)+'</textarea><div class="ayuda">Seleccioná y copiá.</div>';};
+ try{navigator.clipboard.writeText(t).then(ok,mal);}catch(e){mal();}}
 function cargasSemana(){pantalla('<div class="card"><h2>📒 Cargas de la semana</h2><div class="cs-sem">'+
   '<button id="cs0" onclick="csIr(\'0\')">Esta semana</button><button id="cs1" onclick="csIr(\'1\')">Semana anterior</button><button id="csX" onclick="csIr(\'x\')">Elegir fechas</button></div>'+
   '<div id="csF" style="display:none;margin-top:8px"><div class="fila'+''+'"><div><label>Desde</label><input type="date" id="csD"></div><div><label>Hasta</label><input type="date" id="csH"></div></div>'+
