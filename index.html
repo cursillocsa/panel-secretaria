@@ -115,7 +115,7 @@ function fecha(iso){if(!iso)return '';var p=iso.split('-');return p[2]+'/'+p[1]+
 function guardado(k,v){try{if(v===undefined)return localStorage.getItem(k)||'';localStorage.setItem(k,v);}catch(e){return '';}}
 function msg(t){el('msg').innerHTML=t||'';}
 // 4w-C: acciones de formulario que, si la planilla sigue ocupada tras los 8 reintentos, quedan en la cola del navegador y se guardan solas
-var VERSION_PANEL='5s';
+var VERSION_PANEL='5u';
 var COLA_G={cambioGrupo:'Cambio de grupo',inscEditar:'Edición de la inscripción',baja:'Baja',actualizarAlumno:'Datos del alumno',gasto:'Gasto',justificativo:'Justificativo'};
 function pedir(acc,params,ok,mal,opt){
  var q='accion='+acc+'&pin='+encodeURIComponent(PIN);
@@ -516,6 +516,8 @@ function planInfo(){var b=el('planInfo'),pe=el('pers');if(!b||!pe)return;pe.styl
 function guardar(forzar,cerrar){var m=el('gm'),g=grupoSel(),datos={grupo:el('gr').value,inicio:el('ini').value,plan:el('pl').value,tipoPlan:tipoPlan(),
   monto:num(el('mo').value),venc1:el('v1').value,beca:el('be')?el('be').value:'',obs:el('ob').value};
  var esRes=el('resv')&&el('resv').checked;
+ if(!esRes&&!datos.inicio){m.innerHTML='<div class="err">La fecha de INICIO es obligatoria: elegí cuándo empieza en el grupo.</div>';el('ini').style.outline='2px solid #c0392b';el('ini').focus();return;}
+ if(el('ini'))el('ini').style.outline='';
  if(!esRes&&!datos.tipoPlan){m.innerHTML='<div class="err">Elegí el tipo de plan (cuotas normal, cuotas personalizado, contado normal o contado personalizado).</div>';el('tpl').style.outline='2px solid #c0392b';return;}
  if(el('tpl'))el('tpl').style.outline='';
  if(!esRes&&datos.tipoPlan==='cp'){datos.nCuotas=num(el('nc').value)||0;datos.ultima=num(el('ul').value)||0;
