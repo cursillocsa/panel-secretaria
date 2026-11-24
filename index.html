@@ -115,7 +115,7 @@ function fecha(iso){if(!iso)return '';var p=iso.split('-');return p[2]+'/'+p[1]+
 function guardado(k,v){try{if(v===undefined)return localStorage.getItem(k)||'';localStorage.setItem(k,v);}catch(e){return '';}}
 function msg(t){el('msg').innerHTML=t||'';}
 // 4w-C: acciones de formulario que, si la planilla sigue ocupada tras los 8 reintentos, quedan en la cola del navegador y se guardan solas
-var VERSION_PANEL='5u';
+var VERSION_PANEL='5v';
 var COLA_G={cambioGrupo:'Cambio de grupo',inscEditar:'Edición de la inscripción',baja:'Baja',actualizarAlumno:'Datos del alumno',gasto:'Gasto',justificativo:'Justificativo'};
 function pedir(acc,params,ok,mal,opt){
  var q='accion='+acc+'&pin='+encodeURIComponent(PIN);
@@ -1313,7 +1313,7 @@ function csPintar(R){CS_ULT=R;R=csOrdenar(R);var al=function(x){return esc(x.alu
  h+=csTabla('💵 Pagos',['Día','Alumno','Monto','Medio','Tipo','Cobró','Comprobante'],R.pagos.map(function(x){return [esc(x.dia)+(x.pago?'<br><span class="ayuda">pagó '+esc(x.pago)+'</span>':''),al(x),csMil(x.monto),esc(x.medio),esc(x.tipo),esc(x.cobro),esc(x.comp)];}),[2]);
  h+=csTabla('📝 Inscripciones',['Día','Alumno','Tipo','Grupo','Inicio','Plan'],R.inscripciones.map(function(x){return [esc(x.dia),al(x),esc(x.tipo),esc(x.grupo),esc(x.inicio),esc(x.plan)];}));
  if(R.sinFechaCarga)h+='<div class="ayuda" style="margin:-8px 0 12px 4px">Las inscripciones se ven desde ahora: el panel anota la FECHA DE CARGA al inscribir.</div>';
- h+=csTabla('🔄 Cambios de grupo',['Día','Alumno','De','A'],R.cambios.map(function(x){return [esc(x.dia),al(x),esc(x.de),esc(x.a)];}));
+ h+=csTabla('🔄 Cambios de grupo',['Día','Alumno','De','A','Cómo','Quién'],R.cambios.map(function(x){return [esc(x.dia),al(x),esc(x.de),esc(x.a),esc(x.como||'Cambio de grupo'),esc(x.quien||'')];}));
  h+=csTabla('🚪 Bajas',['Salida','Alumno','Grupo','Motivo'],R.bajas.map(function(x){return [esc(x.dia),al(x),esc(x.grupo),esc(x.motivo)];}));
  h+=csTabla('✂️ Ajustes',['Día','Alumno','Tipo','Monto','Cuota','Motivo','Autorizó'],R.ajustes.map(function(x){return [esc(x.dia),al(x),esc(x.tipo),x.monto===''?'(entera)':csMil(x.monto),esc(x.mes),esc(x.motivo),esc(x.aut)];}),[3]);
  h+=csTabla('⏳ Esperas de cuotas',['Día','Alumno','Motivo','Cuotas','Hasta','Qué pasó','Anotó'],R.esperas.map(function(x){return [esc(x.dia),al(x),esc(x.motivo),esc(x.cuotas),esc(x.hasta),esc(x.que),esc(x.quien)];}));
